@@ -7,7 +7,7 @@ import re
 
 # 1. CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(
-    page_title="Tablero Mensajería - SERGEM",
+    page_title="Tablero Mensajería - Sergem Mensajería",
     page_icon="🏢",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -146,7 +146,7 @@ if st.session_state['pagina_actual'] == 'Inicio':
     with col_izq:
         st.markdown("""
             <div class="tarjeta-verde">
-                <h2 style="color: white; text-align: center;"SERGEM MENSAJERÍA</h2>
+                <h2 style="color: white; text-align: center;">SERGEM MENSAJERÍA</h2>
                 <hr style="border-top: 2px solid white;">
                 <h1 style="color: white; font-size: 50px;">Hola</h1>
                 <p style="font-size: 18px; line-height: 1.6;">

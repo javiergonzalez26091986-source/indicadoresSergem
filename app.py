@@ -114,7 +114,7 @@ if st.session_state['pagina_actual'] == 'Inicio':
     with col_izq:
         st.markdown("""
             <div class="tarjeta-verde">
-                <h2 style="color: white; text-align: center;">CONSTRUCTORA BOLÍVAR</h2>
+                <h2 style="color: white; text-align: center;">SERGEM</h2>
                 <hr style="border-top: 2px solid white;">
                 <h1 style="color: white; font-size: 50px;">Hola</h1>
                 <p style="font-size: 18px; line-height: 1.6;">

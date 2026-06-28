@@ -148,11 +148,9 @@ if st.session_state['pagina_actual'] == 'Inicio':
             <div class="tarjeta-verde">
                 <h2 style="color: white; text-align: center;">SERGEM MENSAJERÍA</h2>
                 <hr style="border-top: 2px solid white;">
-                <h1 style="color: white; font-size: 50px;">Hola</h1>
+                <h1 style="color: white; font-size: 50px;">Bienvenido (a)</h1>
                 <p style="font-size: 18px; line-height: 1.6;">
-                    Esta Herramienta Tecnológica de trabajo colaborativo podrás encontrar toda la 
-                    información relacionada a las solicitudes y tiempos en los temas de mensajería 
-                    y sus colaboradores.
+                    Este aplicativo permite visualizar la productividad y la efectividad de nuestros colaboradores. 
                 </p>
             </div>
         """, unsafe_allow_html=True)

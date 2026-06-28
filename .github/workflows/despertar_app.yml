@@ -1,4 +1,4 @@
-ame: Despertador Automático Indicadores SERGEM
+name: Despertador Automático Indicadores SERGEM
 
 on:
   schedule:

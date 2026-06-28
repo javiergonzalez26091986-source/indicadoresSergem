@@ -16,10 +16,12 @@ st.set_page_config(
 # 2. ESTILOS CSS PERSONALIZADOS
 st.markdown("""
     <style>
-    .stApp { background-color: #EAF4EC; } 
+    /* Fondo neutro para que el rojo corporativo resalte elegantemente */
+    .stApp { background-color: #F8F9FA; } 
     
-    .tarjeta-verde {
-        background-color: #008037;
+    /* Nueva tarjeta con el rojo de SERGEM */
+    .tarjeta-roja {
+        background-color: #C1121F; 
         color: white;
         padding: 40px;
         border-radius: 10px;
@@ -27,11 +29,12 @@ st.markdown("""
         min-height: 400px;
     }
     
+    /* Botones adaptados al nuevo color */
     div.stButton > button {
         width: 100%;
         background-color: white;
-        color: #008037;
-        border: 2px solid #008037;
+        color: #C1121F;
+        border: 2px solid #C1121F;
         padding: 15px 32px;
         text-align: center;
         font-size: 18px;
@@ -41,7 +44,7 @@ st.markdown("""
         transition: 0.3s;
     }
     div.stButton > button:hover {
-        background-color: #008037;
+        background-color: #C1121F;
         color: white;
     }
     </style>
@@ -145,7 +148,7 @@ if st.session_state['pagina_actual'] == 'Inicio':
     
     with col_izq:
         st.markdown("""
-            <div class="tarjeta-verde">
+            <div class="tarjeta-roja">
                 <h2 style="color: white; text-align: center;">SERGEM MENSAJERÍA</h2>
                 <hr style="border-top: 2px solid white;">
                 <h1 style="color: white; font-size: 50px;">Bienvenido (a)</h1>
@@ -196,7 +199,7 @@ elif not df_filtrado.empty:
             resumen_mensajeros = df_filtrado.groupby('COLABORADOR').size().reset_index(name='Total Vueltas')
             resumen_mensajeros = resumen_mensajeros.sort_values(by='Total Vueltas', ascending=False)
             fig_colab = px.bar(resumen_mensajeros, x='COLABORADOR', y='Total Vueltas', text='Total Vueltas',
-                               color='Total Vueltas', color_continuous_scale='Greens',
+                               color='Total Vueltas', color_continuous_scale='Reds',
                                title="Volumen Total por Mensajero")
             st.plotly_chart(fig_colab, use_container_width=True)
 
@@ -206,7 +209,7 @@ elif not df_filtrado.empty:
         if 'MES' in df_filtrado.columns and 'UNIDAD DE NEGOCIO' in df_filtrado.columns:
             resumen_volumen = df_filtrado.groupby(['MES', 'UNIDAD DE NEGOCIO']).size().reset_index(name='Total')
             fig_barras = px.bar(resumen_volumen, x='MES', y='Total', color='UNIDAD DE NEGOCIO',
-                                barmode='group', color_discrete_sequence=['#008037', '#FFC20E', '#808080'],
+                                barmode='group', color_discrete_sequence=['#C1121F', '#FFC20E', '#808080'],
                                 title="Solicitudes por Mes y Sede")
             st.plotly_chart(fig_barras, use_container_width=True)
 
@@ -219,31 +222,30 @@ elif not df_filtrado.empty:
                 resumen_dias = df_filtrado['DIA_SEMANA'].value_counts().reset_index()
                 resumen_dias.columns = ['Día', 'Total']
                 fig_dona = px.pie(resumen_dias, values='Total', names='Día', hole=0.5,
-                                  color_discrete_sequence=px.colors.sequential.Greens_r,
+                                  color_discrete_sequence=px.colors.sequential.Reds_r,
                                   title="Participación por Día de la Semana")
                 st.plotly_chart(fig_dona, use_container_width=True)
                 
         with col_g2:
             if 'CENTRO DE COSTOS' in df_filtrado.columns:
                 resumen_cc = df_filtrado.groupby('CENTRO DE COSTOS').size().reset_index(name='Total')
-                resumen_cc = resumen_cc.sort_values(by='Total', ascending=False).head(15) # Mostrar top 15 para no saturar
+                resumen_cc = resumen_cc.sort_values(by='Total', ascending=False).head(15) 
                 fig_tree = px.treemap(resumen_cc, path=['CENTRO DE COSTOS'], values='Total',
-                                      color='Total', color_continuous_scale='Greens',
+                                      color='Total', color_continuous_scale='Reds',
                                       title="Top 15 Centros de Costos con más volumen")
                 st.plotly_chart(fig_tree, use_container_width=True)
 
-    # VISTA 5: TIEMPO (NUEVO REQUERIMIENTO)
+    # VISTA 5: TIEMPO
     elif st.session_state['pagina_actual'] == 'Tiempo':
         st.title("⏱️ Medición de Tiempos")
         
         if 'TIEMPO_HORAS' in df_filtrado.columns and 'TRAMITE' in df_filtrado.columns:
             
-            # Gráfica 1: Dónde se va la mayor cantidad de tiempo (Total por Trámite)
             st.subheader("Tiempo Total Invertido por Trámite")
             st.write("Identifica qué gestiones consumen la mayor cantidad de horas operativas.")
             
             resumen_tiempo = df_filtrado.groupby('TRAMITE')['TIEMPO_HORAS'].sum().reset_index()
-            resumen_tiempo = resumen_tiempo.sort_values(by='TIEMPO_HORAS', ascending=False).head(10) # Top 10
+            resumen_tiempo = resumen_tiempo.sort_values(by='TIEMPO_HORAS', ascending=False).head(10) 
             
             fig_tramite = px.bar(resumen_tiempo, x='TIEMPO_HORAS', y='TRAMITE', orientation='h',
                                  text=resumen_tiempo['TIEMPO_HORAS'].apply(lambda x: f"{x:.1f} hrs"),
@@ -254,13 +256,12 @@ elif not df_filtrado.empty:
 
             st.markdown("---")
 
-            # Gráfica 2: Comparativo de tiempo por Ciudad (Línea de Tendencia)
             st.subheader("Tendencia de Tiempo Promedio por Sede")
             if 'MES' in df_filtrado.columns and 'UNIDAD DE NEGOCIO' in df_filtrado.columns:
                 tendencia_tiempo = df_filtrado.groupby(['MES', 'UNIDAD DE NEGOCIO'])['TIEMPO_HORAS'].mean().reset_index()
                 
                 fig_tendencia = px.line(tendencia_tiempo, x='MES', y='TIEMPO_HORAS', color='UNIDAD DE NEGOCIO',
-                                        markers=True, color_discrete_sequence=['#008037', '#FFC20E', '#808080'],
+                                        markers=True, color_discrete_sequence=['#C1121F', '#FFC20E', '#808080'],
                                         labels={'TIEMPO_HORAS': 'Promedio en Horas por Solicitud', 'MES': 'Mes'})
                 st.plotly_chart(fig_tendencia, use_container_width=True)
         else:

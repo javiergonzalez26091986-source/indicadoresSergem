@@ -236,7 +236,7 @@ elif not df_filtrado.empty:
         st.write("Doña Yesenia mencionó: *'tenemos que llegar a medir el tiempo de cada trámite, que haga una gráfica de dónde es que se va la mayor cantidad de tiempo'*.")
         
         # Validación de columna de tiempos
-        columnas_tiempo = [col para col en df_filtrado.columns if 'TIEMPO' en col or 'HORA' in col]
+        columnas_tiempo = [col for col in df_filtrado.columns if 'TIEMPO' in col or 'HORA' in col]
         if columnas_tiempo:
             st.success(f"Se detectaron columnas para analizar tiempos: {', '.join(columnas_tiempo)}. Aquí podremos cruzar Trámite vs Tiempo.")
             # Aquí irá la lógica futura cuando confirmemos el nombre de la columna de tiempos en el excel

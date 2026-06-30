@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import numpy as np
 from datetime import timedelta
 import re
+import os
 
 # 1. CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(
@@ -14,72 +15,19 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. INTEGRACIÓN DE CSS (PEGADO A LA IZQUIERDA PARA EVITAR QUE MARKDOWN LO IMPRIMA)
-st.markdown("""
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<style>
-/* Forzar Fondo general profesional */
-.stApp { 
-    background-color: #F4F7F6 !important; 
-}
+# 2. INTEGRACIÓN DE CSS (Llamando al archivo styles.css externo)
+# Cargamos Bootstrap primero
+st.markdown('<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">', unsafe_allow_html=True)
 
-/* Forzar texto oscuro general para evitar el Modo Oscuro de los navegadores */
-.stApp p, .stApp span, .stApp label, .stApp div[data-testid="stMarkdownContainer"] {
-    color: #1D3557 !important;
-}
+# Cargamos los estilos de tu archivo styles.css de Github
+def cargar_css(archivo):
+    if os.path.exists(archivo):
+        with open(archivo, "r", encoding="utf-8") as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    else:
+        st.warning(f"No se encontró el archivo {archivo}")
 
-/* Tarjeta de Bienvenida */
-.tarjeta-roja {
-    background: linear-gradient(135deg, #C1121F 0%, #7A0A12 100%) !important;
-    padding: 40px;
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    height: 100%;
-    min-height: 400px;
-}
-
-/* Excepción: Forzar que los textos DENTRO de la tarjeta roja sean blancos */
-.tarjeta-roja p, .tarjeta-roja h1, .tarjeta-roja h2, .tarjeta-roja span, .tarjeta-roja div {
-    color: white !important;
-}
-
-/* Botones del menú principal */
-.stButton > button {
-    width: 100%;
-    background-color: white !important;
-    color: #1D3557 !important;
-    border: 2px solid #E5E5E5 !important;
-    padding: 15px 32px;
-    font-size: 18px;
-    font-weight: 600;
-    border-radius: 8px;
-    transition: all 0.3s ease-in-out;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-}
-.stButton > button:hover, .stButton > button:active {
-    background-color: #C1121F !important;
-    color: white !important;
-    border-color: #C1121F !important;
-    transform: translateY(-2px);
-}
-
-/* Tarjetas de KPIs laterales tipo Bootstrap */
-.kpi-card {
-    background-color: white !important;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-    text-align: center;
-    margin-bottom: 20px;
-    border-left: 5px solid #C1121F !important;
-}
-.kpi-title { font-size: 16px !important; color: #6c757d !important; font-weight: 600; margin-bottom: 5px; }
-.kpi-value { font-size: 32px !important; color: #1D3557 !important; font-weight: 700; margin: 0; }
-
-/* Estilos de encabezados */
-h1, h2, h3 { color: #1D3557 !important; font-weight: 700; }
-</style>
-""", unsafe_allow_html=True)
+cargar_css("styles.css")
 
 # 3. CONTROL DE NAVEGACIÓN (CALLBACKS)
 if 'pagina_actual' not in st.session_state:

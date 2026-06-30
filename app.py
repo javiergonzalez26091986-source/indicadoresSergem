@@ -14,7 +14,7 @@ st.set_page_config(page_title="Tablero Mensajería - Sergem", page_icon="📊", 
 st.markdown('<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">', unsafe_allow_html=True)
 
 # URL
-URL_APPSCRIPT = "AKfycbwUIctBZ-7VwHc1Qtd8xG7brZSeuqLetpWlzpSB9phh3uhRyawcreNEn0deJ3RrAG9Drg"
+URL_APPSCRIPT = "https://script.google.com/macros/s/AKfycbwnn_iCYyaASqNXRN5zTA7Ey_-PedPJCasBg3aVpUpwI0Cwtx6l90PbJK9x1JaQFrJGJw/exec"
 
 def cargar_css(archivo):
     if os.path.exists(archivo):

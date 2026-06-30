@@ -230,7 +230,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     
     st.button("🏠 Volver al Menú Principal", on_click=cambiar_pagina, args=('Inicio',))
     # TEXTO CON INLINE CSS FUERTE PARA EVITAR SOBREESCRITURAS DE COLOR
-    st.markdown("<div style='background-color: #002B67; padding: 15px; border-radius: 8px;'><h3 style='color: #FFFFFF !important; margin:0; font-weight:700;'>Filtros Globales de Control</h3></div><br>", unsafe_allow_html=True)
+    st.markdown("<div style='background-color: #99C2E2; padding: 15px; border-radius: 8px;'><h3 style='color: #FFFFFF !important; margin:0; font-weight:700;'>Filtros Globales de Control</h3></div><br>", unsafe_allow_html=True)
     
     col_f0, col_f1, col_f2, col_f3, col_f4 = st.columns(5)
     

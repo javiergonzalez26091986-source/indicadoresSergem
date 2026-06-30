@@ -73,10 +73,11 @@ def extraer_ciudad(texto):
 # ==========================================
 # 4. PROCESAMIENTO EN CACHÉ REPARADO
 # ==========================================
-@st.cache_data(ttl=60, show_spinner=False) # Reducido a 1 minuto para mayor fluidez al actualizar
+@st.cache_data(ttl=300, show_spinner=False) # Caché de 5 minutos, se limpia sola al subir archivos
 def obtener_y_procesar_datos():
     try:
-        req = requests.get(URL_APPSCRIPT, timeout=15)
+        # AUMENTAMOS EL TIMEOUT A 60 SEGUNDOS PARA BASES DE DATOS GRANDES
+        req = requests.get(URL_APPSCRIPT, timeout=60)
         if req.status_code == 200:
             datos = req.json()
             if datos and len(datos) > 0:

@@ -19,10 +19,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. OCULTAR INTERFAZ POR DEFECTO Y APLICAR NUEVOS ESTILOS UI/UX
+# 2. OCULTAR INTERFAZ POR DEFECTO Y APLICAR ESTILOS
 st.markdown("""
 <style>
-/* Ocultar elementos de Streamlit por defecto */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 [data-testid="stAppHeader"] {display: none !important;}
@@ -30,44 +29,6 @@ div[data-testid="stToolbar"] { visibility: hidden !important; display: none !imp
 .stAppDeployButton {display: none !important;}
 header {display: none !important;}
 .block-container {padding-top: 2rem !important;}
-
-/* NUEVOS ESTILOS: Tarjeta de bienvenida relajante y alargada */
-.tarjeta-bienvenida {
-    background: linear-gradient(135deg, #1D3557 0%, #457B9D 100%) !important; /* Tonos fríos antifatiga visual */
-    padding: 50px 40px;
-    border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-    height: 100%;
-    min-height: 75vh; /* Alarga el recuadro casi hasta abajo */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-}
-.tarjeta-bienvenida h1, .tarjeta-bienvenida h2, .tarjeta-bienvenida p {
-    color: white !important;
-}
-
-/* NUEVOS ESTILOS: Botones de menú más modernos y amplios */
-div.stButton > button {
-    height: 90px !important; /* Botones más altos */
-    border-radius: 12px !important;
-    border: 2px solid #E5E5E5 !important;
-    background-color: white !important;
-    color: #1D3557 !important;
-    font-weight: 600 !important;
-    font-size: 18px !important;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.02) !important;
-    transition: all 0.3s ease !important;
-    width: 100% !important;
-}
-div.stButton > button:hover {
-    border-color: #457B9D !important; /* Borde azul suave en lugar de rojo */
-    background-color: #F8FAFC !important;
-    color: #1D3557 !important;
-    transform: translateY(-4px);
-    box-shadow: 0 8px 15px rgba(69, 123, 157, 0.15) !important;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -110,20 +71,25 @@ def extraer_ciudad(texto):
     return 'Otra'
 
 # ==========================================
-# 4. PROCESAMIENTO EN CACHÉ
+# 4. PROCESAMIENTO EN CACHÉ REPARADO
 # ==========================================
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False) # Caché de 5 minutos, se limpia sola al subir archivos
 def obtener_y_procesar_datos():
     try:
+        # AUMENTAMOS EL TIMEOUT A 60 SEGUNDOS PARA BASES DE DATOS GRANDES
         req = requests.get(URL_APPSCRIPT, timeout=60)
         if req.status_code == 200:
             datos = req.json()
             if datos and len(datos) > 0:
                 df = pd.DataFrame(datos)
+                
+                # Normalizar nombres de columnas a mayúsculas
                 df.columns = df.columns.str.strip().str.upper()
                 
+                # Procesamiento de Fechas (Blindado contra nulos y formatos erróneos)
                 if 'FECHA DE CREACION' in df.columns:
                     df['FECHA DE CREACION'] = pd.to_datetime(df['FECHA DE CREACION'], dayfirst=True, errors='coerce')
+                    # En lugar de dropna directo, rellenamos las erróneas temporalmente para no vaciar el df
                     df['FECHA DE CREACION'] = df['FECHA DE CREACION'].fillna(pd.Timestamp.now())
                     
                     meses_es = {1:'Enero', 2:'Febrero', 3:'Marzo', 4:'Abril', 5:'Mayo', 6:'Junio', 7:'Julio', 8:'Agosto', 9:'Septiembre', 10:'Octubre', 11:'Noviembre', 12:'Diciembre'}
@@ -135,12 +101,14 @@ def obtener_y_procesar_datos():
                     orden_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
                     df['DIA_SEMANA'] = pd.Categorical(df['FECHA DE CREACION'].dt.day_name().map(dias_esp), categories=orden_dias, ordered=True)
                 
+                # Procesamiento de Tiempos
                 if 'TIEMPO EJECUCIÓN REAL' in df.columns:
                     df['TIEMPO_MINUTOS'] = df['TIEMPO EJECUCIÓN REAL'].apply(convertir_a_minutos)
                     df['TIEMPO_HORAS'] = df['TIEMPO_MINUTOS'] / 60 
                 else:
                     df['TIEMPO_HORAS'] = 0
 
+                # Procesamiento de Ciudades
                 if 'TIPO DE SERVICIO' in df.columns:
                     df['CIUDAD_REAL'] = df['TIPO DE SERVICIO'].apply(extraer_ciudad)
                 elif 'UNIDAD DE NEGOCIO' in df.columns:
@@ -154,6 +122,7 @@ def obtener_y_procesar_datos():
     
     return pd.DataFrame()
 
+# Llamado de datos de la base central
 df = obtener_y_procesar_datos()
 
 # ==========================================
@@ -217,7 +186,7 @@ with st.sidebar:
             time.sleep(0.5)
         
         if exito:
-            st.cache_data.clear()
+            st.cache_data.clear() # Limpieza absoluta de la caché al subir datos
             st.success("✅ ¡Base de datos sincronizada exitosamente!")
             time.sleep(1.5)
             st.rerun()
@@ -229,9 +198,7 @@ df_filtrado = pd.DataFrame()
 
 if st.session_state['pagina_actual'] == 'Inicio':
     st.markdown("<br><br>", unsafe_allow_html=True)
-    
-    # Ajustamos las columnas para darle más presencia al menú derecho
-    col_izq, col_espacio, col_der = st.columns([1.1, 0.2, 1.7])
+    col_izq, col_espacio, col_der = st.columns([1.2, 0.2, 1.5])
     
     with col_izq:
         logo_b64 = ""
@@ -239,39 +206,29 @@ if st.session_state['pagina_actual'] == 'Inicio':
             with open("sergemLogo.png", "rb") as img_file:
                 logo_b64 = base64.b64encode(img_file.read()).decode()
         
-        logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="width: 250px; display: block; margin: 0 auto 20px auto;">' if logo_b64 else '<h2 style="text-align: center;">SERGEM MENSAJERÍA</h2>'
+        logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="width: 250px; display: block; margin: 0 auto 15px auto;">' if logo_b64 else '<h2 style="text-align: center;">SERGEM MENSAJERÍA</h2>'
 
-        # Usamos la nueva clase "tarjeta-bienvenida"
         st.markdown(f"""
-        <div class="tarjeta-bienvenida">
+        <div class="tarjeta-roja">
             {logo_html}
-            <hr style="border-top: 2px solid rgba(255,255,255,0.3); width: 80%;">
-            <h1 style="font-size: 42px; text-align: center; margin-top: 15px;">Bienvenido (a)</h1>
-            <p style="font-size: 16px; line-height: 1.6; text-align: center; opacity: 0.9; margin-top: 15px;">
-                El aplicativo gerencial se encuentra sincronizado. Seleccione un módulo a la derecha para analizar los indicadores operativos.
-            </p>
+            <hr style="border-top: 2px solid white; opacity: 0.5;">
+            <h1 style="font-size: 50px;">Bienvenido (a)</h1>
+            <p style="font-size: 18px; line-height: 1.6;">El aplicativo ya está conectado a su base de datos. Los indicadores están listos para visualizarse.</p>
         </div>
         """, unsafe_allow_html=True)
         
     with col_der:
-        st.markdown("<div style='display: flex; flex-direction: column; justify-content: center; height: 100%; min-height: 75vh;'>", unsafe_allow_html=True)
-        st.markdown("<h1 style='text-align: left; margin-bottom: 30px; font-size: 45px;'>Módulos de Análisis</h1>", unsafe_allow_html=True)
-        
+        st.markdown("<h2 style='text-align: center;'>Menú Principal</h2><br>", unsafe_allow_html=True)
         if df.empty:
-            st.warning("⚠️ La base de datos está vacía o cargando. Use el panel lateral izquierdo para subir el archivo inicial a Google Sheets.")
+            st.warning("⚠️ La base de datos está vacía o cargando. Use el panel lateral izquierdo para subir el archivo inicial (ORIGINAL WIP) a Google Sheets.")
         else:
-            st.markdown("<br>", unsafe_allow_html=True)
             col_btn1, col_btn2 = st.columns(2)
             with col_btn1:
                 st.button("📊 Tablero General", on_click=cambiar_pagina, args=('Tablero',))
-                st.markdown("<br>", unsafe_allow_html=True) # Espacio entre botones verticales
-                st.button("📝 Volúmenes de Solicitud", on_click=cambiar_pagina, args=('Solicitudes',))
+                st.button("📝 Solicitudes", on_click=cambiar_pagina, args=('Solicitudes',))
             with col_btn2:
                 st.button("⏱️ Medición de Tiempos", on_click=cambiar_pagina, args=('Tiempo',))
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.button("📈 Cuotas de Participación", on_click=cambiar_pagina, args=('Participacion',))
-        
-        st.markdown("</div>", unsafe_allow_html=True)
+                st.button("📈 Participación", on_click=cambiar_pagina, args=('Participacion',))
 
 elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     

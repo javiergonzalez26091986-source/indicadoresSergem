@@ -22,17 +22,12 @@ st.set_page_config(
 # 2. OCULTAR INTERFAZ POR DEFECTO Y APLICAR ESTILOS
 st.markdown("""
 <style>
-/* Ocultar el menú antiguo y el pie de página */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
-
-/* Ocultar barra superior y el botón de Manage App / Deploy */
 [data-testid="stAppHeader"] {display: none !important;}
 div[data-testid="stToolbar"] { visibility: hidden !important; display: none !important; }
 .stAppDeployButton {display: none !important;}
 header {display: none !important;}
-
-/* Ajustar el margen superior para que no quede un hueco vacío tras borrar la barra */
 .block-container {padding-top: 2rem !important;}
 </style>
 """, unsafe_allow_html=True)
@@ -43,8 +38,6 @@ def cargar_css(archivo):
     if os.path.exists(archivo):
         with open(archivo, "r", encoding="utf-8") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-    else:
-        st.warning(f"No se encontró el archivo {archivo}")
 
 cargar_css("styles.css")
 
@@ -77,18 +70,54 @@ def extraer_ciudad(texto):
         if c in t: return c.capitalize()
     return 'Otra'
 
-@st.cache_data(ttl=300) # Se actualiza cada 5 minutos
-def obtener_datos_bd():
+# ==========================================
+# 4. OPTIMIZACIÓN EXTREMA: PROCESAMIENTO EN CACHÉ
+# ==========================================
+# Al poner todo el procesamiento de pandas aquí, la app vuela.
+@st.cache_data(ttl=300, show_spinner=False) 
+def obtener_y_procesar_datos():
     try:
-        req = requests.get(URL_APPSCRIPT)
+        req = requests.get(URL_APPSCRIPT, timeout=10)
         if req.status_code == 200:
             datos = req.json()
-            if datos: return pd.DataFrame(datos)
-    except: pass
+            if datos:
+                df = pd.DataFrame(datos)
+                
+                # Procesamiento de Fechas (dayfirst=True arregla el problema de los meses)
+                if 'FECHA DE CREACION' in df.columns:
+                    df['FECHA DE CREACION'] = pd.to_datetime(df['FECHA DE CREACION'], dayfirst=True, errors='coerce')
+                    df = df.dropna(subset=['FECHA DE CREACION'])
+                    
+                    meses_es = {1:'Enero', 2:'Febrero', 3:'Marzo', 4:'Abril', 5:'Mayo', 6:'Junio', 7:'Julio', 8:'Agosto', 9:'Septiembre', 10:'Octubre', 11:'Noviembre', 12:'Diciembre'}
+                    df['AÑO'] = df['FECHA DE CREACION'].dt.year.astype(str)
+                    df['MES_NUM'] = df['FECHA DE CREACION'].dt.month
+                    df['MES_NOMBRE'] = df['MES_NUM'].map(meses_es)
+                    
+                    dias_esp = {'Monday':'Lunes', 'Tuesday':'Martes', 'Wednesday':'Miércoles', 'Thursday':'Jueves', 'Friday':'Viernes', 'Saturday':'Sábado', 'Sunday':'Domingo'}
+                    orden_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+                    df['DIA_SEMANA'] = pd.Categorical(df['FECHA DE CREACION'].dt.day_name().map(dias_esp), categories=orden_dias, ordered=True)
+                
+                # Procesamiento de Tiempos
+                if 'TIEMPO EJECUCIÓN REAL' in df.columns:
+                    df['TIEMPO_MINUTOS'] = df['TIEMPO EJECUCIÓN REAL'].apply(convertir_a_minutos)
+                    df['TIEMPO_HORAS'] = df['TIEMPO_MINUTOS'] / 60 
+
+                # Procesamiento de Ciudades
+                if 'TIPO DE SERVICIO' in df.columns:
+                    df['CIUDAD_REAL'] = df['TIPO DE SERVICIO'].apply(extraer_ciudad)
+                    
+                return df
+    except Exception as e:
+        print(f"Error de conexión: {e}")
+        pass
+    
     return pd.DataFrame()
 
+# Cargamos los datos procesados en 1 segundo
+df = obtener_y_procesar_datos()
+
 # ==========================================
-# 4. MENSAJEROS Y CONFIGURACIÓN (Panel Lateral)
+# 5. MENSAJEROS Y CONFIGURACIÓN (Panel Lateral)
 # ==========================================
 with st.sidebar:
     st.markdown("### ⚙️ Configuración Operativa")
@@ -115,21 +144,17 @@ with st.sidebar:
             df_nuevo = pd.read_excel(archivo_subido)
         
         df_nuevo.columns = df_nuevo.columns.str.strip().str.upper()
-        
-        # Limpieza de nulos
         df_nuevo = df_nuevo.fillna("") 
         df_nuevo = df_nuevo.astype(str)
         
         total_filas = len(df_nuevo)
-        tamano_lote = 500 # Enviamos en paquetes de 500 filas para que Google no colapse
+        tamano_lote = 500 
         
         st.markdown("⏳ **Sincronizando con Google Sheets...**")
         barra_progreso = st.progress(0)
         texto_progreso = st.empty()
         
         exito = True
-        
-        # --- BUCLE DE ENVÍO POR LOTES (CHUNKING) ---
         for i in range(0, total_filas, tamano_lote):
             lote = df_nuevo.iloc[i:i+tamano_lote]
             json_str = lote.to_json(orient='records')
@@ -139,57 +164,30 @@ with st.sidebar:
                 respuesta = requests.post(URL_APPSCRIPT, json=payload_limpio)
                 if respuesta.status_code not in [200, 302]:
                     exito = False
-                    st.error(f"Error en el servidor de Google en la fila {i}. HTTP: {respuesta.status_code}")
+                    st.error(f"Error en el servidor. HTTP: {respuesta.status_code}")
                     break
             except Exception as e:
                 exito = False
                 st.error(f"Error de conexión: {e}")
                 break
                 
-            # Actualizamos la barra de progreso
             progreso_actual = min(1.0, (i + tamano_lote) / total_filas)
             barra_progreso.progress(progreso_actual)
-            filas_subidas = min(i + tamano_lote, total_filas)
-            texto_progreso.text(f"Subiendo: {int(progreso_actual * 100)}% ({filas_subidas} de {total_filas} filas procesadas)")
-            
-            # Pequeña pausa para no saturar la API de Google
-            time.sleep(1)
+            texto_progreso.text(f"Subiendo: {int(progreso_actual * 100)}% procesado")
+            time.sleep(0.5)
         
         if exito:
-            st.cache_data.clear() # Limpiamos caché para forzar la recarga
+            obtener_y_procesar_datos.clear() # Forzamos la recarga de datos nuevos
             st.success("✅ ¡Base de datos sincronizada exitosamente!")
             time.sleep(2)
             st.rerun()
 
-# ==========================================
-# 5. CARGA Y PROCESAMIENTO DE DATOS PRINCIPAL
-# ==========================================
-df = obtener_datos_bd()
-df_filtrado = pd.DataFrame() 
-
-if not df.empty:
-    df['FECHA DE CREACION'] = pd.to_datetime(df['FECHA DE CREACION'], errors='coerce')
-    df = df.dropna(subset=['FECHA DE CREACION'])
-    
-    meses_es = {1:'Enero', 2:'Febrero', 3:'Marzo', 4:'Abril', 5:'Mayo', 6:'Junio', 7:'Julio', 8:'Agosto', 9:'Septiembre', 10:'Octubre', 11:'Noviembre', 12:'Diciembre'}
-    df['AÑO'] = df['FECHA DE CREACION'].dt.year.astype(str)
-    df['MES_NUM'] = df['FECHA DE CREACION'].dt.month
-    df['MES_NOMBRE'] = df['MES_NUM'].map(meses_es)
-    
-    dias_esp = {'Monday':'Lunes', 'Tuesday':'Martes', 'Wednesday':'Miércoles', 'Thursday':'Jueves', 'Friday':'Viernes', 'Saturday':'Sábado', 'Sunday':'Domingo'}
-    orden_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
-    df['DIA_SEMANA'] = pd.Categorical(df['FECHA DE CREACION'].dt.day_name().map(dias_esp), categories=orden_dias, ordered=True)
-    
-    if 'TIEMPO EJECUCIÓN REAL' in df.columns:
-        df['TIEMPO_MINUTOS'] = df['TIEMPO EJECUCIÓN REAL'].apply(convertir_a_minutos)
-        df['TIEMPO_HORAS'] = df['TIEMPO_MINUTOS'] / 60 
-
-    if 'TIPO DE SERVICIO' in df.columns:
-        df['CIUDAD_REAL'] = df['TIPO DE SERVICIO'].apply(extraer_ciudad)
 
 # ==========================================
 # 6. RENDERIZADO DE LA INTERFAZ
 # ==========================================
+df_filtrado = pd.DataFrame() 
+
 if st.session_state['pagina_actual'] == 'Inicio':
     st.markdown("<br><br>", unsafe_allow_html=True)
     col_izq, col_espacio, col_der = st.columns([1.2, 0.2, 1.5])
@@ -226,6 +224,7 @@ if st.session_state['pagina_actual'] == 'Inicio':
 
 elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     
+    # FILTROS SUPERIORES
     st.button("🏠 Volver al Menú Principal", on_click=cambiar_pagina, args=('Inicio',))
     st.markdown("<div style='background-color: #1D3557; padding: 15px; border-radius: 8px;'><h3 style='color: white !important; margin:0;'>Filtros Globales de Control</h3></div><br>", unsafe_allow_html=True)
     
@@ -247,6 +246,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
         tramites = sorted(df['TRAMITE'].dropna().unique().tolist()) if 'TRAMITE' in df.columns else []
         tramite_sel = st.multiselect("Trámite", tramites, placeholder="Todas")
 
+    # APLICAR FILTROS
     df_filtrado = df.copy()
     if ano_sel: df_filtrado = df_filtrado[df_filtrado['AÑO'].isin(ano_sel)]
     if mes_sel: df_filtrado = df_filtrado[df_filtrado['MES_NOMBRE'].isin(mes_sel)]
@@ -300,7 +300,10 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
 
         with col_graficos:
             st.markdown("<b>Solicitudes por Fecha y Ciudad</b>", unsafe_allow_html=True)
-            res_mes_ciudad = df_filtrado.groupby(['MES_NOMBRE', 'CIUDAD_REAL']).size().reset_index(name='Total')
+            # Ordenamos los meses cronológicamente gracias a MES_NUM
+            res_mes_ciudad = df_filtrado.groupby(['MES_NUM', 'MES_NOMBRE', 'CIUDAD_REAL']).size().reset_index(name='Total')
+            res_mes_ciudad = res_mes_ciudad.sort_values('MES_NUM')
+            
             fig_combo = px.bar(res_mes_ciudad, x='MES_NOMBRE', y='Total', color='CIUDAD_REAL', color_discrete_sequence=paleta_datos)
             fig_combo.update_layout(margin=dict(t=10, b=10, l=10, r=10), plot_bgcolor='white', paper_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_combo, use_container_width=True)
@@ -320,7 +323,8 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             
             with col_t2:
                 st.markdown("<b>Evolución del Tiempo Promedio (Horas) por Sede</b>", unsafe_allow_html=True)
-                tendencia = df_filtrado.groupby(['MES_NOMBRE', 'CIUDAD_REAL'])['TIEMPO_HORAS'].mean().reset_index()
+                tendencia = df_filtrado.groupby(['MES_NUM', 'MES_NOMBRE', 'CIUDAD_REAL'])['TIEMPO_HORAS'].mean().reset_index()
+                tendencia = tendencia.sort_values('MES_NUM')
                 fig_tend = px.line(tendencia, x='MES_NOMBRE', y='TIEMPO_HORAS', color='CIUDAD_REAL', markers=True, color_discrete_sequence=paleta_datos)
                 st.plotly_chart(fig_tend, use_container_width=True)
 
@@ -332,7 +336,8 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
         col_graf_s1, col_graf_s2 = st.columns(2)
         with col_graf_s1:
             st.markdown("<b>Crecimiento Mensual de Solicitudes</b>", unsafe_allow_html=True)
-            res_mes = df_filtrado.groupby('MES_NOMBRE').size().reset_index(name='Cantidad')
+            res_mes = df_filtrado.groupby(['MES_NUM', 'MES_NOMBRE']).size().reset_index(name='Cantidad')
+            res_mes = res_mes.sort_values('MES_NUM')
             fig_mes = px.area(res_mes, x='MES_NOMBRE', y='Cantidad', color_discrete_sequence=['#457B9D'])
             st.plotly_chart(fig_mes, use_container_width=True)
             

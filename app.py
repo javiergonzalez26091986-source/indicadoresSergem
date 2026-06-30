@@ -14,75 +14,72 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. INTEGRACIÓN DE CSS (Corregido para que no se imprima como texto)
-st.markdown(
-    """
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-    /* Forzar Fondo general profesional */
-    .stApp { 
-        background-color: #F4F7F6 !important; 
-    }
-    
-    /* Forzar texto oscuro general para evitar el Modo Oscuro de los navegadores */
-    .stApp p, .stApp span, .stApp label, .stApp div[data-testid="stMarkdownContainer"] {
-        color: #1D3557 !important;
-    }
-    
-    /* Tarjeta de Bienvenida */
-    .tarjeta-roja {
-        background: linear-gradient(135deg, #C1121F 0%, #7A0A12 100%) !important;
-        padding: 40px;
-        border-radius: 12px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        height: 100%;
-        min-height: 400px;
-    }
-    
-    /* Excepción: Forzar que los textos DENTRO de la tarjeta roja sean blancos */
-    .tarjeta-roja p, .tarjeta-roja h1, .tarjeta-roja h2, .tarjeta-roja span, .tarjeta-roja div {
-        color: white !important;
-    }
-    
-    /* Botones del menú principal */
-    .stButton > button {
-        width: 100%;
-        background-color: white !important;
-        color: #1D3557 !important;
-        border: 2px solid #E5E5E5 !important;
-        padding: 15px 32px;
-        font-size: 18px;
-        font-weight: 600;
-        border-radius: 8px;
-        transition: all 0.3s ease-in-out;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    }
-    .stButton > button:hover, .stButton > button:active {
-        background-color: #C1121F !important;
-        color: white !important;
-        border-color: #C1121F !important;
-        transform: translateY(-2px);
-    }
+# 2. INTEGRACIÓN DE CSS (PEGADO A LA IZQUIERDA PARA EVITAR QUE MARKDOWN LO IMPRIMA)
+st.markdown("""
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+/* Forzar Fondo general profesional */
+.stApp { 
+    background-color: #F4F7F6 !important; 
+}
 
-    /* Tarjetas de KPIs laterales tipo Bootstrap */
-    .kpi-card {
-        background-color: white !important;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        text-align: center;
-        margin-bottom: 20px;
-        border-left: 5px solid #C1121F !important;
-    }
-    .kpi-title { font-size: 16px !important; color: #6c757d !important; font-weight: 600; margin-bottom: 5px; }
-    .kpi-value { font-size: 32px !important; color: #1D3557 !important; font-weight: 700; margin: 0; }
-    
-    /* Estilos de encabezados */
-    h1, h2, h3 { color: #1D3557 !important; font-weight: 700; }
-    </style>
-    """, 
-    unsafe_allow_html=True
-)
+/* Forzar texto oscuro general para evitar el Modo Oscuro de los navegadores */
+.stApp p, .stApp span, .stApp label, .stApp div[data-testid="stMarkdownContainer"] {
+    color: #1D3557 !important;
+}
+
+/* Tarjeta de Bienvenida */
+.tarjeta-roja {
+    background: linear-gradient(135deg, #C1121F 0%, #7A0A12 100%) !important;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    height: 100%;
+    min-height: 400px;
+}
+
+/* Excepción: Forzar que los textos DENTRO de la tarjeta roja sean blancos */
+.tarjeta-roja p, .tarjeta-roja h1, .tarjeta-roja h2, .tarjeta-roja span, .tarjeta-roja div {
+    color: white !important;
+}
+
+/* Botones del menú principal */
+.stButton > button {
+    width: 100%;
+    background-color: white !important;
+    color: #1D3557 !important;
+    border: 2px solid #E5E5E5 !important;
+    padding: 15px 32px;
+    font-size: 18px;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.3s ease-in-out;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+.stButton > button:hover, .stButton > button:active {
+    background-color: #C1121F !important;
+    color: white !important;
+    border-color: #C1121F !important;
+    transform: translateY(-2px);
+}
+
+/* Tarjetas de KPIs laterales tipo Bootstrap */
+.kpi-card {
+    background-color: white !important;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    text-align: center;
+    margin-bottom: 20px;
+    border-left: 5px solid #C1121F !important;
+}
+.kpi-title { font-size: 16px !important; color: #6c757d !important; font-weight: 600; margin-bottom: 5px; }
+.kpi-value { font-size: 32px !important; color: #1D3557 !important; font-weight: 700; margin: 0; }
+
+/* Estilos de encabezados */
+h1, h2, h3 { color: #1D3557 !important; font-weight: 700; }
+</style>
+""", unsafe_allow_html=True)
 
 # 3. CONTROL DE NAVEGACIÓN (CALLBACKS)
 if 'pagina_actual' not in st.session_state:
@@ -112,18 +109,18 @@ if st.session_state['pagina_actual'] == 'Inicio':
     
     with col_izq:
         st.markdown("""
-            <div class="tarjeta-roja">
-                <h2 style="text-align: center;">SERGEM MENSAJERÍA</h2>
-                <hr style="border-top: 2px solid white; opacity: 0.5;">
-                <h1 style="font-size: 50px;">Bienvenido (a)</h1>
-                <p style="font-size: 18px; line-height: 1.6;">
-                    Este aplicativo gerencial permite visualizar la productividad, la efectividad 
-                    y los tiempos operativos de nuestros colaboradores a nivel nacional.
-                </p>
-                <br>
-                <p style="font-size: 14px; opacity: 0.8;">Cargue el archivo ORIGINAL WIP a la derecha para comenzar.</p>
-            </div>
-        """, unsafe_allow_html=True)
+<div class="tarjeta-roja">
+    <h2 style="text-align: center;">SERGEM MENSAJERÍA</h2>
+    <hr style="border-top: 2px solid white; opacity: 0.5;">
+    <h1 style="font-size: 50px;">Bienvenido (a)</h1>
+    <p style="font-size: 18px; line-height: 1.6;">
+        Este aplicativo gerencial permite visualizar la productividad, la efectividad 
+        y los tiempos operativos de nuestros colaboradores a nivel nacional.
+    </p>
+    <br>
+    <p style="font-size: 14px; opacity: 0.8;">Cargue el archivo ORIGINAL WIP a la derecha para comenzar.</p>
+</div>
+""", unsafe_allow_html=True)
         
     with col_der:
         st.markdown("<h2 style='text-align: center;'>Menú Principal</h2><br>", unsafe_allow_html=True)
@@ -163,7 +160,11 @@ if 'archivo_cargado' in st.session_state and st.session_state['pagina_actual'] !
 
         # FILTROS SUPERIORES
         st.button("🏠 Volver al Menú", on_click=cambiar_pagina, args=('Inicio',))
-        st.markdown("<div style='background-color: #1D3557; padding: 15px; border-radius: 8px;'><h3 style='color: white !important; margin:0;'>Filtros Globales</h3></div><br>", unsafe_allow_html=True)
+        st.markdown("""
+<div style='background-color: #1D3557; padding: 15px; border-radius: 8px;'>
+    <h3 style='color: white !important; margin:0;'>Filtros Globales</h3>
+</div><br>
+""", unsafe_allow_html=True)
         
         col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
         
@@ -219,19 +220,19 @@ if 'archivo_cargado' in st.session_state and st.session_state['pagina_actual'] !
             # LADO IZQUIERDO: KPIs
             with col_kpis:
                 st.markdown(f"""
-                    <div class="kpi-card">
-                        <div class="kpi-title">🛵 Solicitudes Totales</div>
-                        <div class="kpi-value">{total_solicitudes:,}</div>
-                    </div>
-                    <div class="kpi-card">
-                        <div class="kpi-title">📈 Promedio Diario</div>
-                        <div class="kpi-value">{promedio_diario:.1f}</div>
-                    </div>
-                    <div class="kpi-card">
-                        <div class="kpi-title">✅ Efectividad Operativa</div>
-                        <div class="kpi-value">{eficacia:.1f}%</div>
-                    </div>
-                """, unsafe_allow_html=True)
+<div class="kpi-card">
+    <div class="kpi-title">🛵 Solicitudes Totales</div>
+    <div class="kpi-value">{total_solicitudes:,}</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-title">📈 Promedio Diario</div>
+    <div class="kpi-value">{promedio_diario:.1f}</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-title">✅ Efectividad Operativa</div>
+    <div class="kpi-value">{eficacia:.1f}%</div>
+</div>
+""", unsafe_allow_html=True)
                 
                 if 'DIA_SEMANA' in df_filtrado.columns:
                     res_dias = df_filtrado['DIA_SEMANA'].value_counts().reset_index()

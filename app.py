@@ -9,7 +9,6 @@ import os
 import base64
 
 # 1. CONFIGURACIÓN DE LA PÁGINA
-# Se actualiza el page_icon para usar el archivo .ico
 st.set_page_config(
     page_title="Tablero Mensajería - Sergem Mensajería",
     page_icon="sergemLogo.ico",
@@ -17,7 +16,25 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. INTEGRACIÓN DE CSS (Llamando al archivo styles.css externo)
+# 2. OCULTAR INTERFAZ POR DEFECTO DE STREAMLIT (GITHUB, MENU, FOOTER)
+st.markdown("""
+<style>
+/* Ocultar el menú antiguo y el pie de página */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+
+/* Ocultar barra superior y el botón de Manage App / Deploy */
+[data-testid="stAppHeader"] {display: none !important;}
+div[data-testid="stToolbar"] { visibility: hidden !important; display: none !important; }
+.stAppDeployButton {display: none !important;}
+header {display: none !important;}
+
+/* Ajustar el margen superior para que no quede un hueco vacío tras borrar la barra */
+.block-container {padding-top: 2rem !important;}
+</style>
+""", unsafe_allow_html=True)
+
+# 3. INTEGRACIÓN DE CSS (Llamando al archivo styles.css externo)
 st.markdown('<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">', unsafe_allow_html=True)
 
 def cargar_css(archivo):
@@ -29,7 +46,7 @@ def cargar_css(archivo):
 
 cargar_css("styles.css")
 
-# 3. CONTROL DE NAVEGACIÓN Y FUNCIONES
+# 4. CONTROL DE NAVEGACIÓN Y FUNCIONES
 if 'pagina_actual' not in st.session_state:
     st.session_state['pagina_actual'] = 'Inicio'
 
@@ -53,7 +70,7 @@ def convertir_a_minutos(texto_tiempo):
     if mins: minutos_totales += int(mins.group(1))
     return minutos_totales
 
-# 4. FLUJO PRINCIPAL Y CARGA DE DATOS
+# 5. FLUJO PRINCIPAL Y CARGA DE DATOS
 if st.session_state['pagina_actual'] == 'Inicio':
     st.markdown("<br><br>", unsafe_allow_html=True)
     col_izq, col_espacio, col_der = st.columns([1.2, 0.2, 1.5])
@@ -140,7 +157,7 @@ if st.session_state['pagina_actual'] == 'Inicio':
                 st.error(f"Error procesando el archivo. Verifique el formato. Detalle: {e}")
 
 # ==========================================================
-# RENDERIZADO DE LOS TABLEROS SECUNDARIOS
+# 6. RENDERIZADO DE LOS TABLEROS SECUNDARIOS
 # ==========================================================
 if 'df_datos' in st.session_state and st.session_state['pagina_actual'] != 'Inicio':
     # Cargamos los datos desde la memoria

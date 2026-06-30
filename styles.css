@@ -1,77 +1,62 @@
-/* Forzar Fondo general profesional y limpio */
+/* Forzar Fondo general profesional */
 .stApp { 
-    background-color: #F8FAFC !important; 
+    background-color: #F4F7F6 !important; 
 }
 
-/* Forzar texto oscuro general para evitar distorsiones por modo oscuro del navegador */
+/* Forzar texto oscuro general para evitar el Modo Oscuro de los navegadores */
 .stApp p, .stApp span, .stApp label, .stApp div[data-testid="stMarkdownContainer"] {
     color: #1D3557 !important;
 }
 
-/* Tarjeta Ejecutiva de Bienvenida (Estilo Constructora Bolívar) */
-.tarjeta-corporativa {
-    background-color: #FFFFFF !important;
+/* Tarjeta de Bienvenida con el Rojo Exacto de Sergem (#E30613) */
+.tarjeta-roja {
+    background-color: #E30613 !important;
     padding: 40px;
-    border-radius: 16px;
-    border: 1px solid #E2E8F0;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     height: 100%;
-    min-height: 480px; /* Sincronizado dinámicamente con la altura del menú de botones */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
+    min-height: 400px;
 }
 
-/* Botones del menú principal unificados en tamaño y diseño hacia abajo */
+/* Excepción: Forzar que los textos DENTRO de la tarjeta roja sean blancos */
+.tarjeta-roja p, .tarjeta-roja h1, .tarjeta-roja h2, .tarjeta-roja span, .tarjeta-roja div {
+    color: white !important;
+}
+
+/* Botones del menú principal unificados verticalmente */
 div.stButton > button {
     width: 100% !important;
-    height: 75px !important; /* Altura ideal y uniforme para todos los botones */
-    background-color: #FFFFFF !important;
+    height: 70px !important;
+    background-color: white !important;
     color: #1D3557 !important;
-    border: 2px solid #E2E8F0 !important;
+    border: 2px solid #E5E5E5 !important;
     padding: 15px 32px;
     font-size: 18px !important;
     font-weight: 600 !important;
-    border-radius: 12px !important;
-    transition: all 0.25s ease-in-out !important;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02) !important;
+    border-radius: 8px !important;
+    transition: all 0.3s ease-in-out !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
 }
 
 div.stButton > button:hover, div.stButton > button:active {
-    background-color: #1D3557 !important; /* Color corporativo principal al pasar el mouse */
-    color: #FFFFFF !important;
-    border-color: #1D3557 !important;
+    background-color: #E30613 !important; /* Cambia al rojo oficial en hover */
+    color: white !important;
+    border-color: #E30613 !important;
     transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(29, 53, 87, 0.15) !important;
 }
 
 /* Tarjetas de KPIs laterales tipo Bootstrap */
 .kpi-card {
-    background-color: #FFFFFF !important;
-    padding: 25px;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.03);
+    background-color: white !important;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     text-align: center;
     margin-bottom: 20px;
-    border-left: 5px solid #1D3557 !important;
+    border-left: 5px solid #E30613 !important;
 }
-.kpi-title { 
-    font-size: 15px !important; 
-    color: #64748B !important; 
-    font-weight: 600; 
-    margin-bottom: 5px; 
-}
-.kpi-value { 
-    font-size: 34px !important; 
-    color: #1D3557 !important; 
-    font-weight: 700; 
-    margin: 0; 
-}
+.kpi-title { font-size: 16px !important; color: #6c757d !important; font-weight: 600; margin-bottom: 5px; }
+.kpi-value { font-size: 32px !important; color: #1D3557 !important; font-weight: 700; margin: 0; }
 
 /* Estilos de encabezados */
-h1, h2, h3 { 
-    color: #1D3557 !important; 
-    font-weight: 700; 
-}
+h1, h2, h3 { color: #1D3557 !important; font-weight: 700; }

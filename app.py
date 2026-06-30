@@ -115,14 +115,17 @@ with st.sidebar:
             
             df_nuevo.columns = df_nuevo.columns.str.strip().str.upper()
             
-            # BLINDAJE CONTRA ERRORES JSON (NAN, NAT)
-            df_nuevo = df_nuevo.astype(str) # Convertimos todo a texto para evitar conflictos de serialización
-            df_nuevo = df_nuevo.replace(["nan", "NaT", "None"], "") # Limpiamos los vacíos
+            # --- BLINDAJE DEFINITIVO CONTRA ERRORES JSON ---
+            # 1. Rellenar celdas vacías nativamente en Pandas
+            df_nuevo = df_nuevo.fillna("") 
+            # 2. Asegurar que fechas u otros tipos raros pasen como texto
+            df_nuevo = df_nuevo.astype(str)
+            # 3. Dejar que Pandas genere el JSON (es inmune a los errores de la librería json de Python)
+            json_payload = df_nuevo.to_json(orient='records')
             
-            payload = df_nuevo.to_dict(orient='records')
-            
-            # Petición a Google Sheets
-            respuesta = requests.post(URL_APPSCRIPT, json=payload)
+            # Petición a Google Sheets (usamos 'data' en lugar de 'json' y pasamos las cabeceras manuales)
+            headers = {'Content-Type': 'application/json'}
+            respuesta = requests.post(URL_APPSCRIPT, data=json_payload, headers=headers)
             
             if respuesta.status_code == 200:
                 st.cache_data.clear() # Limpiamos caché para forzar la recarga

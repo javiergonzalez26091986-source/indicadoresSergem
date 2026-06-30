@@ -1,62 +1,69 @@
-/* Forzar Fondo general profesional */
+/* Forzar Fondo general profesional y relajante */
 .stApp { 
-    background-color: #F4F7F6 !important; 
+    background-color: #F1F5F9 !important; 
 }
 
-/* Forzar texto oscuro general para evitar el Modo Oscuro de los navegadores */
+/* Forzar texto oscuro general para evitar distorsiones */
 .stApp p, .stApp span, .stApp label, .stApp div[data-testid="stMarkdownContainer"] {
     color: #1D3557 !important;
 }
 
-/* Tarjeta de Bienvenida con el Rojo Exacto de Sergem (#E30613) */
+/* Tarjeta de Bienvenida con el Rojo Oficial (#E30613) */
 .tarjeta-roja {
     background-color: #E30613 !important;
-    padding: 40px;
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    padding: 45px 40px;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(227, 6, 19, 0.15);
     height: 100%;
-    min-height: 400px;
+    min-height: 430px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
-/* Excepción: Forzar que los textos DENTRO de la tarjeta roja sean blancos */
+/* Forzar que los textos DENTRO de la tarjeta roja sean siempre blancos */
 .tarjeta-roja p, .tarjeta-roja h1, .tarjeta-roja h2, .tarjeta-roja span, .tarjeta-roja div {
     color: white !important;
 }
 
-/* Botones del menú principal unificados verticalmente */
+/* Botones del menú principal con simetría total en lista vertical */
 div.stButton > button {
     width: 100% !important;
-    height: 70px !important;
+    height: 72px !important; /* Altura idéntica y fija para todos */
     background-color: white !important;
     color: #1D3557 !important;
-    border: 2px solid #E5E5E5 !important;
+    border: 2px solid #E2E8F0 !important;
     padding: 15px 32px;
     font-size: 18px !important;
     font-weight: 600 !important;
-    border-radius: 8px !important;
-    transition: all 0.3s ease-in-out !important;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
+    border-radius: 12px !important;
+    transition: all 0.25s ease-in-out !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02) !important;
 }
 
 div.stButton > button:hover, div.stButton > button:active {
-    background-color: #E30613 !important; /* Cambia al rojo oficial en hover */
+    background-color: #E30613 !important; /* Cambia al rojo oficial de Sergem */
     color: white !important;
     border-color: #E30613 !important;
-    transform: translateY(-2px);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px rgba(227, 6, 19, 0.2) !important;
 }
 
 /* Tarjetas de KPIs laterales tipo Bootstrap */
 .kpi-card {
     background-color: white !important;
     padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.03);
     text-align: center;
     margin-bottom: 20px;
     border-left: 5px solid #E30613 !important;
 }
-.kpi-title { font-size: 16px !important; color: #6c757d !important; font-weight: 600; margin-bottom: 5px; }
+.kpi-title { font-size: 15px !important; color: #64748B !important; font-weight: 600; margin-bottom: 5px; }
 .kpi-value { font-size: 32px !important; color: #1D3557 !important; font-weight: 700; margin: 0; }
 
-/* Estilos de encabezados */
-h1, h2, h3 { color: #1D3557 !important; font-weight: 700; }
+/* Estilos de encabezados globales */
+h1, h2, h3 { 
+    color: #1D3557 !important; 
+    font-weight: 700; 
+}

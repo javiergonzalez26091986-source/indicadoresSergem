@@ -9,6 +9,7 @@ import os
 import base64
 import requests
 import json
+import time
 
 # 1. CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(
@@ -106,35 +107,59 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 📥 Actualizar Base de Datos")
     archivo_subido = st.file_uploader("Subir nuevo ORIGINAL WIP", type=['xlsx', 'xls', 'csv'])
+    
     if archivo_subido is not None and st.button("Procesar y Subir"):
-        with st.spinner("Subiendo y actualizando datos en Google Sheets..."):
-            if archivo_subido.name.endswith('.csv'): 
-                df_nuevo = pd.read_csv(archivo_subido, sep=';', encoding='utf-8')
-            else: 
-                df_nuevo = pd.read_excel(archivo_subido)
-            
-            df_nuevo.columns = df_nuevo.columns.str.strip().str.upper()
-            
-            # --- BLINDAJE DEFINITIVO CONTRA ERRORES JSON Y APPS SCRIPT ---
-            # 1. Rellenar celdas vacías nativamente en Pandas
-            df_nuevo = df_nuevo.fillna("") 
-            # 2. Asegurar que fechas u otros tipos raros pasen como texto
-            df_nuevo = df_nuevo.astype(str)
-            # 3. Dejar que Pandas genere el string JSON puro
-            json_str = df_nuevo.to_json(orient='records')
-            # 4. Convertirlo de nuevo a un objeto de Python limpio
+        if archivo_subido.name.endswith('.csv'): 
+            df_nuevo = pd.read_csv(archivo_subido, sep=';', encoding='utf-8')
+        else: 
+            df_nuevo = pd.read_excel(archivo_subido)
+        
+        df_nuevo.columns = df_nuevo.columns.str.strip().str.upper()
+        
+        # Limpieza de nulos
+        df_nuevo = df_nuevo.fillna("") 
+        df_nuevo = df_nuevo.astype(str)
+        
+        total_filas = len(df_nuevo)
+        tamano_lote = 500 # Enviamos en paquetes de 500 filas para que Google no colapse
+        
+        st.markdown("⏳ **Sincronizando con Google Sheets...**")
+        barra_progreso = st.progress(0)
+        texto_progreso = st.empty()
+        
+        exito = True
+        
+        # --- BUCLE DE ENVÍO POR LOTES (CHUNKING) ---
+        for i in range(0, total_filas, tamano_lote):
+            lote = df_nuevo.iloc[i:i+tamano_lote]
+            json_str = lote.to_json(orient='records')
             payload_limpio = json.loads(json_str)
             
-            # 5. Enviar a Google usando el método seguro (json=)
-            respuesta = requests.post(URL_APPSCRIPT, json=payload_limpio)
+            try:
+                respuesta = requests.post(URL_APPSCRIPT, json=payload_limpio)
+                if respuesta.status_code not in [200, 302]:
+                    exito = False
+                    st.error(f"Error en el servidor de Google en la fila {i}. HTTP: {respuesta.status_code}")
+                    break
+            except Exception as e:
+                exito = False
+                st.error(f"Error de conexión: {e}")
+                break
+                
+            # Actualizamos la barra de progreso
+            progreso_actual = min(1.0, (i + tamano_lote) / total_filas)
+            barra_progreso.progress(progreso_actual)
+            filas_subidas = min(i + tamano_lote, total_filas)
+            texto_progreso.text(f"Subiendo: {int(progreso_actual * 100)}% ({filas_subidas} de {total_filas} filas procesadas)")
             
-            # Google puede responder con 200 (OK) o 302 (Redirección exitosa)
-            if respuesta.status_code in [200, 302]:
-                st.cache_data.clear() # Limpiamos caché para forzar la recarga
-                st.success("¡Base de datos actualizada! Los datos ya están en Google Sheets.")
-                st.rerun()
-            else:
-                st.error(f"Error de comunicación. Código HTTP: {respuesta.status_code}. Detalle de Google: {respuesta.text}")
+            # Pequeña pausa para no saturar la API de Google
+            time.sleep(1)
+        
+        if exito:
+            st.cache_data.clear() # Limpiamos caché para forzar la recarga
+            st.success("✅ ¡Base de datos sincronizada exitosamente!")
+            time.sleep(2)
+            st.rerun()
 
 # ==========================================
 # 5. CARGA Y PROCESAMIENTO DE DATOS PRINCIPAL
@@ -170,7 +195,6 @@ if st.session_state['pagina_actual'] == 'Inicio':
     col_izq, col_espacio, col_der = st.columns([1.2, 0.2, 1.5])
     
     with col_izq:
-        # Lógica para inyectar el logo en Base64
         logo_b64 = ""
         if os.path.exists("sergemLogo.png"):
             with open("sergemLogo.png", "rb") as img_file:
@@ -202,7 +226,6 @@ if st.session_state['pagina_actual'] == 'Inicio':
 
 elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     
-    # FILTROS SUPERIORES
     st.button("🏠 Volver al Menú Principal", on_click=cambiar_pagina, args=('Inicio',))
     st.markdown("<div style='background-color: #1D3557; padding: 15px; border-radius: 8px;'><h3 style='color: white !important; margin:0;'>Filtros Globales de Control</h3></div><br>", unsafe_allow_html=True)
     
@@ -224,7 +247,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
         tramites = sorted(df['TRAMITE'].dropna().unique().tolist()) if 'TRAMITE' in df.columns else []
         tramite_sel = st.multiselect("Trámite", tramites, placeholder="Todas")
 
-    # APLICAR FILTROS
     df_filtrado = df.copy()
     if ano_sel: df_filtrado = df_filtrado[df_filtrado['AÑO'].isin(ano_sel)]
     if mes_sel: df_filtrado = df_filtrado[df_filtrado['MES_NOMBRE'].isin(mes_sel)]
@@ -246,7 +268,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             dias_habiles = np.busday_count(fecha_min, fecha_max + timedelta(days=1), weekmask='1111110')
             if dias_habiles == 0: dias_habiles = 1
         
-        # CÁLCULO MATEMÁTICO EXACTO
         ciudades_en_pantalla = df_filtrado['CIUDAD_REAL'].unique()
         mensajeros_activos = sum([mensajeros_config.get(c, 0) for c in ciudades_en_pantalla])
         if mensajeros_activos == 0: mensajeros_activos = 1

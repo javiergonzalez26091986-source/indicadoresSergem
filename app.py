@@ -32,7 +32,12 @@ if 'pagina_actual' not in st.session_state:
     st.session_state['pagina_actual'] = 'Inicio'
 
 def cambiar_pagina(nombre_pagina):
-    st.session_state['pagina_actual'] = nombre_pagina
+    # Validación: Si intenta ir a un tablero sin haber cargado el archivo
+    if nombre_pagina != 'Inicio' and 'archivo_cargado' not in st.session_state:
+        st.session_state['alerta_archivo'] = True
+    else:
+        st.session_state['alerta_archivo'] = False
+        st.session_state['pagina_actual'] = nombre_pagina
 
 def convertir_a_minutos(texto_tiempo):
     if pd.isna(texto_tiempo) or texto_tiempo == '': return 0
@@ -71,6 +76,10 @@ if st.session_state['pagina_actual'] == 'Inicio':
     with col_der:
         st.markdown("<h2 style='text-align: center;'>Menú Principal</h2><br>", unsafe_allow_html=True)
         
+        # Alerta de validación si intentan navegar sin archivo
+        if st.session_state.get('alerta_archivo', False):
+            st.warning("⚠️ Para poder continuar, debe cargar previamente el archivo ORIGINAL WIP.")
+        
         # Grid de botones para los 4 menús solicitados
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
@@ -84,6 +93,7 @@ if st.session_state['pagina_actual'] == 'Inicio':
         archivo_subido = st.file_uploader("📥 Subir archivo ORIGINAL WIP", type=['xlsx', 'xls', 'csv'])
         if archivo_subido is not None:
             st.session_state['archivo_cargado'] = archivo_subido
+            st.session_state['alerta_archivo'] = False # Limpiamos la alerta al cargar el archivo exitosamente
             st.success("¡Archivo cargado en memoria exitosamente! Seleccione un tablero arriba.")
 
 # Si hay un archivo cargado en memoria y estamos en un tablero secundario

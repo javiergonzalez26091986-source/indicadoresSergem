@@ -206,7 +206,7 @@ if st.session_state['pagina_actual'] == 'Inicio':
             {logo_html}
             <hr style="border-top: 2px solid white; opacity: 0.5;">
             <h1 style="font-size: 50px;">Bienvenido (a)</h1>
-            <p style="font-size: 18px; line-height: 1.6;">El aplicativo ya está conectado a su base de datos. Los indicadores están listos para visualizarse.</p>
+            <p style="font-size: 18px; line-height: 1.6;">Este aplicativo permite visualizar la operatividad y la eficiencia de nuestra operación.</p>
         </div>
         """, unsafe_allow_html=True)
         

@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -190,8 +190,9 @@ with st.sidebar:
 df_filtrado = pd.DataFrame() 
 
 if st.session_state['pagina_actual'] == 'Inicio':
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    col_izq, col_espacio, col_der = st.columns([1.2, 0.2, 1.5])
+    st.markdown("<br>", unsafe_allow_html=True)
+    # Calibramos las proporciones de las columnas para equilibrar la tarjeta y el menú lateral derecho
+    col_izq, col_espacio, col_der = st.columns([1.2, 0.1, 1.5])
     
     with col_izq:
         logo_b64 = ""
@@ -205,30 +206,31 @@ if st.session_state['pagina_actual'] == 'Inicio':
         <div class="tarjeta-roja">
             {logo_html}
             <hr style="border-top: 2px solid white; opacity: 0.5;">
-            <h1 style="font-size: 50px;">Bienvenido (a)</h1>
-            <p style="font-size: 18px; line-height: 1.6;">Este aplicativo permite visualizar la operatividad y la eficiencia de nuestra operación.</p>
+            <h1 style="font-size: 50px; font-weight: 800;">Bienvenido (a)</h1>
+            <p style="font-size: 18px; line-height: 1.6; opacity: 0.95;">Este aplicativo permite visualizar la operatividad y la eficiencia de nuestra operación.</p>
         </div>
         """, unsafe_allow_html=True)
         
     with col_der:
-        st.markdown("<h2 style='text-align: center;'>Menú Principal</h2><br>", unsafe_allow_html=True)
+        # Título del menú principal alineado perfectamente con el tope de la tarjeta izquierda
+        st.markdown("<h2 style='text-align: center; margin-top: 0px; margin-bottom: 25px; font-size: 34px; font-weight: 700;'>Menú Principal</h2>", unsafe_allow_html=True)
         if df.empty:
             st.warning("⚠️ La base de datos está vacía o cargando. Use el panel lateral izquierdo para subir el archivo inicial (ORIGINAL WIP) a Google Sheets.")
         else:
-            # Botones del menú apilados rigurosamente hacia abajo en lista vertical
+            # Lista vertical pura con espaciado controlado por bloques HTML para lograr simetría exacta
             st.button("📊 Tablero General", on_click=cambiar_pagina, args=('Tablero',))
-            st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-bottom: 14px;'></div>", unsafe_allow_html=True)
             st.button("📝 Volúmenes de Solicitud", on_click=cambiar_pagina, args=('Solicitudes',))
-            st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-bottom: 14px;'></div>", unsafe_allow_html=True)
             st.button("⏱️ Medición de Tiempos", on_click=cambiar_pagina, args=('Tiempo',))
-            st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-bottom: 14px;'></div>", unsafe_allow_html=True)
             st.button("📈 Cuotas de Participación", on_click=cambiar_pagina, args=('Participacion',))
 
 elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     
     st.button("🏠 Volver al Menú Principal", on_click=cambiar_pagina, args=('Inicio',))
-    # SE AGREGA UN ESTILO EN EL TEXTO INLINE PARA BLINDAR LAS LETRAS EN BLANCO
-    st.markdown("<div style='background-color: #99C2E2; padding: 15px; border-radius: 8px;'><h3 style='color: #FFFFFF !important; margin:0; font-weight:700;'>Filtros Globales de Control</h3></div><br>", unsafe_allow_html=True)
+    # TEXTO CON INLINE CSS FUERTE PARA EVITAR SOBREESCRITURAS DE COLOR
+    st.markdown("<div style='background-color: #002B67; padding: 15px; border-radius: 8px;'><h3 style='color: #FFFFFF !important; margin:0; font-weight:700;'>Filtros Globales de Control</h3></div><br>", unsafe_allow_html=True)
     
     col_f0, col_f1, col_f2, col_f3, col_f4 = st.columns(5)
     

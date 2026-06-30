@@ -73,23 +73,19 @@ def extraer_ciudad(texto):
 # ==========================================
 # 4. PROCESAMIENTO EN CACHÉ REPARADO
 # ==========================================
-@st.cache_data(ttl=300, show_spinner=False) # Caché de 5 minutos, se limpia sola al subir archivos
+@st.cache_data(ttl=60, show_spinner=False)
 def obtener_y_procesar_datos():
     try:
-        # AUMENTAMOS EL TIMEOUT A 60 SEGUNDOS PARA BASES DE DATOS GRANDES
-        req = requests.get(URL_APPSCRIPT, timeout=60)
+        req = requests.get(URL_APPSCRIPT, timeout=15)
         if req.status_code == 200:
             datos = req.json()
             if datos and len(datos) > 0:
                 df = pd.DataFrame(datos)
                 
-                # Normalizar nombres de columnas a mayúsculas
                 df.columns = df.columns.str.strip().str.upper()
                 
-                # Procesamiento de Fechas (Blindado contra nulos y formatos erróneos)
                 if 'FECHA DE CREACION' in df.columns:
                     df['FECHA DE CREACION'] = pd.to_datetime(df['FECHA DE CREACION'], dayfirst=True, errors='coerce')
-                    # En lugar de dropna directo, rellenamos las erróneas temporalmente para no vaciar el df
                     df['FECHA DE CREACION'] = df['FECHA DE CREACION'].fillna(pd.Timestamp.now())
                     
                     meses_es = {1:'Enero', 2:'Febrero', 3:'Marzo', 4:'Abril', 5:'Mayo', 6:'Junio', 7:'Julio', 8:'Agosto', 9:'Septiembre', 10:'Octubre', 11:'Noviembre', 12:'Diciembre'}
@@ -101,14 +97,12 @@ def obtener_y_procesar_datos():
                     orden_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
                     df['DIA_SEMANA'] = pd.Categorical(df['FECHA DE CREACION'].dt.day_name().map(dias_esp), categories=orden_dias, ordered=True)
                 
-                # Procesamiento de Tiempos
                 if 'TIEMPO EJECUCIÓN REAL' in df.columns:
                     df['TIEMPO_MINUTOS'] = df['TIEMPO EJECUCIÓN REAL'].apply(convertir_a_minutos)
                     df['TIEMPO_HORAS'] = df['TIEMPO_MINUTOS'] / 60 
                 else:
                     df['TIEMPO_HORAS'] = 0
 
-                # Procesamiento de Ciudades
                 if 'TIPO DE SERVICIO' in df.columns:
                     df['CIUDAD_REAL'] = df['TIPO DE SERVICIO'].apply(extraer_ciudad)
                 elif 'UNIDAD DE NEGOCIO' in df.columns:
@@ -122,7 +116,6 @@ def obtener_y_procesar_datos():
     
     return pd.DataFrame()
 
-# Llamado de datos de la base central
 df = obtener_y_procesar_datos()
 
 # ==========================================
@@ -186,7 +179,7 @@ with st.sidebar:
             time.sleep(0.5)
         
         if exito:
-            st.cache_data.clear() # Limpieza absoluta de la caché al subir datos
+            st.cache_data.clear() 
             st.success("✅ ¡Base de datos sincronizada exitosamente!")
             time.sleep(1.5)
             st.rerun()
@@ -197,8 +190,59 @@ with st.sidebar:
 df_filtrado = pd.DataFrame() 
 
 if st.session_state['pagina_actual'] == 'Inicio':
+    
+    # Inyección de CSS exclusivo para la pantalla de inicio para lograr el diseño de Bolívar
+    st.markdown("""
+    <style>
+    /* Convertir la columna derecha (3ra) en una tarjeta idéntica en altura a la roja */
+    div[data-testid="column"]:nth-of-type(3) {
+        background-color: #FFFFFF;
+        padding: 40px 40px;
+        border-radius: 12px;
+        box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.05);
+        height: 100%;
+        min-height: 480px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    
+    /* Estilizar los botones para que parezcan un menú de navegación elegante */
+    div[data-testid="column"]:nth-of-type(3) .stButton > button {
+        width: 100%;
+        margin-bottom: 12px;
+        padding: 16px 20px;
+        background-color: #F8FAFC !important;
+        border: 1px solid #E2E8F0 !important;
+        color: #334155 !important;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 16px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    
+    /* Efecto al pasar el mouse: Iluminación con rojo corporativo */
+    div[data-testid="column"]:nth-of-type(3) .stButton > button:hover {
+        background-color: #FFFFFF !important;
+        border-color: #C1121F !important;
+        color: #C1121F !important;
+        box-shadow: 0 4px 12px rgba(193, 18, 31, 0.1);
+        transform: translateX(5px);
+    }
+    
+    /* Ajuste fino al contenedor de la tarjeta roja para asegurar alineación perfecta */
+    .tarjeta-roja {
+        min-height: 480px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     st.markdown("<br><br>", unsafe_allow_html=True)
-    col_izq, col_espacio, col_der = st.columns([1.2, 0.2, 1.5])
+    col_izq, col_espacio, col_der = st.columns([1.3, 0.1, 1.3])
     
     with col_izq:
         logo_b64 = ""
@@ -206,29 +250,29 @@ if st.session_state['pagina_actual'] == 'Inicio':
             with open("sergemLogo.png", "rb") as img_file:
                 logo_b64 = base64.b64encode(img_file.read()).decode()
         
-        logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="width: 250px; display: block; margin: 0 auto 15px auto;">' if logo_b64 else '<h2 style="text-align: center;">SERGEM MENSAJERÍA</h2>'
+        logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="width: 250px; display: block; margin: 0 auto 15px auto;">' if logo_b64 else '<h2 style="text-align: center; color: white;">SERGEM MENSAJERÍA</h2>'
 
         st.markdown(f"""
         <div class="tarjeta-roja">
             {logo_html}
             <hr style="border-top: 2px solid white; opacity: 0.5;">
-            <h1 style="font-size: 50px;">Bienvenido (a)</h1>
-            <p style="font-size: 18px; line-height: 1.6;">El aplicativo ya está conectado a su base de datos. Los indicadores están listos para visualizarse.</p>
+            <h1 style="font-size: 42px; text-align: center;">Bienvenido (a)</h1>
+            <p style="font-size: 17px; line-height: 1.6; text-align: center; margin-top: 15px;">
+                El aplicativo operativo está en línea. Seleccione un módulo en el panel derecho para visualizar los indicadores de gestión.
+            </p>
         </div>
         """, unsafe_allow_html=True)
         
     with col_der:
-        st.markdown("<h2 style='text-align: center;'>Menú Principal</h2><br>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: #1D3557; margin-bottom: 25px;'>Menú Principal</h2>", unsafe_allow_html=True)
         if df.empty:
             st.warning("⚠️ La base de datos está vacía o cargando. Use el panel lateral izquierdo para subir el archivo inicial (ORIGINAL WIP) a Google Sheets.")
         else:
-            col_btn1, col_btn2 = st.columns(2)
-            with col_btn1:
-                st.button("📊 Tablero General", on_click=cambiar_pagina, args=('Tablero',))
-                st.button("📝 Solicitudes", on_click=cambiar_pagina, args=('Solicitudes',))
-            with col_btn2:
-                st.button("⏱️ Medición de Tiempos", on_click=cambiar_pagina, args=('Tiempo',))
-                st.button("📈 Participación", on_click=cambiar_pagina, args=('Participacion',))
+            # Botones apilados verticalmente, emulando la interfaz de Constructora Bolívar
+            st.button("📊 Tablero General", on_click=cambiar_pagina, args=('Tablero',))
+            st.button("📝 Análisis de Solicitudes", on_click=cambiar_pagina, args=('Solicitudes',))
+            st.button("⏱️ Medición de Tiempos", on_click=cambiar_pagina, args=('Tiempo',))
+            st.button("📈 Participación Operativa", on_click=cambiar_pagina, args=('Participacion',))
 
 elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     

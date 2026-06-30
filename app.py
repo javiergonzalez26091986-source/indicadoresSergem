@@ -73,23 +73,19 @@ def extraer_ciudad(texto):
 # ==========================================
 # 4. PROCESAMIENTO EN CACHÉ REPARADO
 # ==========================================
-@st.cache_data(ttl=300, show_spinner=False) # Caché de 5 minutos, se limpia sola al subir archivos
+@st.cache_data(ttl=300, show_spinner=False)
 def obtener_y_procesar_datos():
     try:
-        # AUMENTAMOS EL TIMEOUT A 60 SEGUNDOS PARA BASES DE DATOS GRANDES
         req = requests.get(URL_APPSCRIPT, timeout=60)
         if req.status_code == 200:
             datos = req.json()
             if datos and len(datos) > 0:
                 df = pd.DataFrame(datos)
                 
-                # Normalizar nombres de columnas a mayúsculas
                 df.columns = df.columns.str.strip().str.upper()
                 
-                # Procesamiento de Fechas (Blindado contra nulos y formatos erróneos)
                 if 'FECHA DE CREACION' in df.columns:
                     df['FECHA DE CREACION'] = pd.to_datetime(df['FECHA DE CREACION'], dayfirst=True, errors='coerce')
-                    # En lugar de dropna directo, rellenamos las erróneas temporalmente para no vaciar el df
                     df['FECHA DE CREACION'] = df['FECHA DE CREACION'].fillna(pd.Timestamp.now())
                     
                     meses_es = {1:'Enero', 2:'Febrero', 3:'Marzo', 4:'Abril', 5:'Mayo', 6:'Junio', 7:'Julio', 8:'Agosto', 9:'Septiembre', 10:'Octubre', 11:'Noviembre', 12:'Diciembre'}
@@ -101,14 +97,12 @@ def obtener_y_procesar_datos():
                     orden_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
                     df['DIA_SEMANA'] = pd.Categorical(df['FECHA DE CREACION'].dt.day_name().map(dias_esp), categories=orden_dias, ordered=True)
                 
-                # Procesamiento de Tiempos
                 if 'TIEMPO EJECUCIÓN REAL' in df.columns:
                     df['TIEMPO_MINUTOS'] = df['TIEMPO EJECUCIÓN REAL'].apply(convertir_a_minutos)
                     df['TIEMPO_HORAS'] = df['TIEMPO_MINUTOS'] / 60 
                 else:
                     df['TIEMPO_HORAS'] = 0
 
-                # Procesamiento de Ciudades
                 if 'TIPO DE SERVICIO' in df.columns:
                     df['CIUDAD_REAL'] = df['TIPO DE SERVICIO'].apply(extraer_ciudad)
                 elif 'UNIDAD DE NEGOCIO' in df.columns:
@@ -122,7 +116,6 @@ def obtener_y_procesar_datos():
     
     return pd.DataFrame()
 
-# Llamado de datos de la base central
 df = obtener_y_procesar_datos()
 
 # ==========================================
@@ -132,6 +125,7 @@ with st.sidebar:
     st.markdown("### ⚙️ Configuración Operativa")
     st.write("Ajuste el número de mensajeros para el cálculo del promedio:")
     
+    # Ajustados por código los números iniciales exactos solicitados por tu cliente
     mensajeros_config = {
         'Bogota': st.number_input("Bogotá", value=7.0, step=0.5),
         'Barranquilla': st.number_input("Barranquilla", value=3.0, step=0.5),
@@ -186,7 +180,7 @@ with st.sidebar:
             time.sleep(0.5)
         
         if exito:
-            st.cache_data.clear() # Limpieza absoluta de la caché al subir datos
+            st.cache_data.clear()
             st.success("✅ ¡Base de datos sincronizada exitosamente!")
             time.sleep(1.5)
             st.rerun()
@@ -206,29 +200,35 @@ if st.session_state['pagina_actual'] == 'Inicio':
             with open("sergemLogo.png", "rb") as img_file:
                 logo_b64 = base64.b64encode(img_file.read()).decode()
         
-        logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="width: 250px; display: block; margin: 0 auto 15px auto;">' if logo_b64 else '<h2 style="text-align: center;">SERGEM MENSAJERÍA</h2>'
+        # Logo procesado con bordes redondeados por HTML inline estilo Constructora Bolívar
+        logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="width: 210px; display: block; margin: 0 auto 15px auto; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">' if logo_b64 else '<h2 style="text-align: center;">SERGEM MENSAJERÍA</h2>'
 
         st.markdown(f"""
-        <div class="tarjeta-roja">
+        <div class="tarjeta-corporativa">
             {logo_html}
-            <hr style="border-top: 2px solid white; opacity: 0.5;">
-            <h1 style="font-size: 50px;">Bienvenido (a)</h1>
-            <p style="font-size: 18px; line-height: 1.6;">El aplicativo ya está conectado a su base de datos. Los indicadores están listos para visualizarse.</p>
+            <br>
+            <h2 style="font-size: 28px; font-weight: 700; color: #1D3557; margin-bottom: 10px;">SERGEM MENSAJERÍA</h2>
+            <div style="border-top: 2px solid #E2E8F0; width: 60%; margin: 15px auto;"></div>
+            <h1 style="font-size: 44px; font-weight: 800; color: #1D3557; margin-top: 10px;">Bienvenido(a)</h1>
+            <p style="font-size: 16px; line-height: 1.6; color: #475569; margin-top: 15px; padding: 0 10px;">
+                El aplicativo gerencial se encuentra enlazado de forma segura a su base de datos. Los módulos e indicadores de gestión están listos para su visualización.
+            </p>
         </div>
         """, unsafe_allow_html=True)
         
     with col_der:
-        st.markdown("<h2 style='text-align: center;'>Menú Principal</h2><br>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; font-size: 32px; font-weight: 700;'>Menú Principal</h2><br>", unsafe_allow_html=True)
         if df.empty:
             st.warning("⚠️ La base de datos está vacía o cargando. Use el panel lateral izquierdo para subir el archivo inicial (ORIGINAL WIP) a Google Sheets.")
         else:
-            col_btn1, col_btn2 = st.columns(2)
-            with col_btn1:
-                st.button("📊 Tablero General", on_click=cambiar_pagina, args=('Tablero',))
-                st.button("📝 Solicitudes", on_click=cambiar_pagina, args=('Solicitudes',))
-            with col_btn2:
-                st.button("⏱️ Medición de Tiempos", on_click=cambiar_pagina, args=('Tiempo',))
-                st.button("📈 Participación", on_click=cambiar_pagina, args=('Participacion',))
+            # Botones organizados en lista perfecta hacia abajo con dimensiones uniformes
+            st.button("📊 Tablero General", on_click=cambiar_pagina, args=('Tablero',))
+            st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
+            st.button("📝 Volúmenes de Solicitud", on_click=cambiar_pagina, args=('Solicitudes',))
+            st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
+            st.button("⏱️ Medición de Tiempos", on_click=cambiar_pagina, args=('Tiempo',))
+            st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
+            st.button("📈 Cuotas de Participación", on_click=cambiar_pagina, args=('Participacion',))
 
 elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     

@@ -71,25 +71,21 @@ def extraer_ciudad(texto):
     return 'Otra'
 
 # ==========================================
-# 4. PROCESAMIENTO EN CACHÉ REPARADO
+# 4. PROCESAMIENTO EN CACHÉ
 # ==========================================
-@st.cache_data(ttl=300, show_spinner=False) # Caché de 5 minutos, se limpia sola al subir archivos
+@st.cache_data(ttl=300, show_spinner=False)
 def obtener_y_procesar_datos():
     try:
-        # AUMENTAMOS EL TIMEOUT A 60 SEGUNDOS PARA BASES DE DATOS GRANDES
         req = requests.get(URL_APPSCRIPT, timeout=60)
         if req.status_code == 200:
             datos = req.json()
             if datos and len(datos) > 0:
                 df = pd.DataFrame(datos)
                 
-                # Normalizar nombres de columnas a mayúsculas
                 df.columns = df.columns.str.strip().str.upper()
                 
-                # Procesamiento de Fechas (Blindado contra nulos y formatos erróneos)
                 if 'FECHA DE CREACION' in df.columns:
                     df['FECHA DE CREACION'] = pd.to_datetime(df['FECHA DE CREACION'], dayfirst=True, errors='coerce')
-                    # En lugar de dropna directo, rellenamos las erróneas temporalmente para no vaciar el df
                     df['FECHA DE CREACION'] = df['FECHA DE CREACION'].fillna(pd.Timestamp.now())
                     
                     meses_es = {1:'Enero', 2:'Febrero', 3:'Marzo', 4:'Abril', 5:'Mayo', 6:'Junio', 7:'Julio', 8:'Agosto', 9:'Septiembre', 10:'Octubre', 11:'Noviembre', 12:'Diciembre'}
@@ -101,14 +97,12 @@ def obtener_y_procesar_datos():
                     orden_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
                     df['DIA_SEMANA'] = pd.Categorical(df['FECHA DE CREACION'].dt.day_name().map(dias_esp), categories=orden_dias, ordered=True)
                 
-                # Procesamiento de Tiempos
                 if 'TIEMPO EJECUCIÓN REAL' in df.columns:
                     df['TIEMPO_MINUTOS'] = df['TIEMPO EJECUCIÓN REAL'].apply(convertir_a_minutos)
                     df['TIEMPO_HORAS'] = df['TIEMPO_MINUTOS'] / 60 
                 else:
                     df['TIEMPO_HORAS'] = 0
 
-                # Procesamiento de Ciudades
                 if 'TIPO DE SERVICIO' in df.columns:
                     df['CIUDAD_REAL'] = df['TIPO DE SERVICIO'].apply(extraer_ciudad)
                 elif 'UNIDAD DE NEGOCIO' in df.columns:
@@ -122,7 +116,6 @@ def obtener_y_procesar_datos():
     
     return pd.DataFrame()
 
-# Llamado de datos de la base central
 df = obtener_y_procesar_datos()
 
 # ==========================================
@@ -186,7 +179,7 @@ with st.sidebar:
             time.sleep(0.5)
         
         if exito:
-            st.cache_data.clear() # Limpieza absoluta de la caché al subir datos
+            st.cache_data.clear()
             st.success("✅ ¡Base de datos sincronizada exitosamente!")
             time.sleep(1.5)
             st.rerun()
@@ -206,7 +199,6 @@ if st.session_state['pagina_actual'] == 'Inicio':
             with open("sergemLogo.png", "rb") as img_file:
                 logo_b64 = base64.b64encode(img_file.read()).decode()
         
-        # Rounded logo corners added for better appearance
         logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="width: 250px; display: block; margin: 0 auto 15px auto; border-radius: 12px;">' if logo_b64 else '<h2 style="text-align: center;">SERGEM MENSAJERÍA</h2>'
 
         st.markdown(f"""
@@ -223,18 +215,20 @@ if st.session_state['pagina_actual'] == 'Inicio':
         if df.empty:
             st.warning("⚠️ La base de datos está vacía o cargando. Use el panel lateral izquierdo para subir el archivo inicial (ORIGINAL WIP) a Google Sheets.")
         else:
-            col_btn1, col_btn2 = st.columns(2)
-            with col_btn1:
-                st.button("📊 Tablero General", on_click=cambiar_pagina, args=('Tablero',))
-                st.button("📝 Solicitudes", on_click=cambiar_pagina, args=('Solicitudes',))
-            with col_btn2:
-                st.button("⏱️ Medición de Tiempos", on_click=cambiar_pagina, args=('Tiempo',))
-                st.button("📈 Participación", on_click=cambiar_pagina, args=('Participacion',))
+            # Botones del menú apilados rigurosamente hacia abajo en lista vertical
+            st.button("📊 Tablero General", on_click=cambiar_pagina, args=('Tablero',))
+            st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
+            st.button("📝 Volúmenes de Solicitud", on_click=cambiar_pagina, args=('Solicitudes',))
+            st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
+            st.button("⏱️ Medición de Tiempos", on_click=cambiar_pagina, args=('Tiempo',))
+            st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
+            st.button("📈 Cuotas de Participación", on_click=cambiar_pagina, args=('Participacion',))
 
 elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     
     st.button("🏠 Volver al Menú Principal", on_click=cambiar_pagina, args=('Inicio',))
-    st.markdown("<div style='background-color: #1D3557; color: white !important; padding: 15px; border-radius: 8px;'><h3 style='color: white !important; margin:0;'>Filtros Globales de Control</h3></div><br>", unsafe_allow_html=True)
+    # SE AGREGA UN ESTILO EN EL TEXTO INLINE PARA BLINDAR LAS LETRAS EN BLANCO
+    st.markdown("<div style='background-color: #1D3557; padding: 15px; border-radius: 8px;'><h3 style='color: #FFFFFF !important; margin:0; font-weight:700;'>Filtros Globales de Control</h3></div><br>", unsafe_allow_html=True)
     
     col_f0, col_f1, col_f2, col_f3, col_f4 = st.columns(5)
     
@@ -261,7 +255,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     if centro_sel and 'CENTRO DE COSTOS' in df_filtrado.columns: df_filtrado = df_filtrado[df_filtrado['CENTRO DE COSTOS'].astype(str).isin(centro_sel)]
     if tramite_sel and 'TRAMITE' in df_filtrado.columns: df_filtrado = df_filtrado[df_filtrado['TRAMITE'].isin(tramite_sel)]
 
-    paleta_datos = ['#1D3557', '#457B9D', '#A8DADC', '#C1121F', '#F4A261', '#2A9D8F', '#E9C46A']
+    paleta_datos = ['#1D3557', '#457B9D', '#A8DADC', '#E30613', '#F4A261', '#2A9D8F', '#E9C46A']
 
     # ==========================================
     # VISTA 1: TABLERO GENERAL (INDICADORES)

@@ -108,17 +108,28 @@ with st.sidebar:
     archivo_subido = st.file_uploader("Subir nuevo ORIGINAL WIP", type=['xlsx', 'xls', 'csv'])
     if archivo_subido is not None and st.button("Procesar y Subir"):
         with st.spinner("Subiendo y actualizando datos en Google Sheets..."):
-            if archivo_subido.name.endswith('.csv'): df_nuevo = pd.read_csv(archivo_subido, sep=';', encoding='utf-8')
-            else: df_nuevo = pd.read_excel(archivo_subido)
+            if archivo_subido.name.endswith('.csv'): 
+                df_nuevo = pd.read_csv(archivo_subido, sep=';', encoding='utf-8')
+            else: 
+                df_nuevo = pd.read_excel(archivo_subido)
             
             df_nuevo.columns = df_nuevo.columns.str.strip().str.upper()
-            df_nuevo['FECHA DE CREACION'] = df_nuevo['FECHA DE CREACION'].astype(str)
+            
+            # BLINDAJE CONTRA ERRORES JSON (NAN, NAT)
+            df_nuevo = df_nuevo.astype(str) # Convertimos todo a texto para evitar conflictos de serialización
+            df_nuevo = df_nuevo.replace(["nan", "NaT", "None"], "") # Limpiamos los vacíos
             
             payload = df_nuevo.to_dict(orient='records')
-            requests.post(URL_APPSCRIPT, json=payload)
-            st.cache_data.clear() # Limpiamos caché para forzar la recarga
-            st.success("¡Base de datos actualizada! Los datos ya están en Google Sheets.")
-            st.rerun()
+            
+            # Petición a Google Sheets
+            respuesta = requests.post(URL_APPSCRIPT, json=payload)
+            
+            if respuesta.status_code == 200:
+                st.cache_data.clear() # Limpiamos caché para forzar la recarga
+                st.success("¡Base de datos actualizada! Los datos ya están en Google Sheets.")
+                st.rerun()
+            else:
+                st.error("Hubo un error de comunicación con Google Sheets.")
 
 # ==========================================
 # 5. CARGA Y PROCESAMIENTO DE DATOS PRINCIPAL

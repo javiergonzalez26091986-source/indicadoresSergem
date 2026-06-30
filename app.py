@@ -6,11 +6,13 @@ import numpy as np
 from datetime import timedelta
 import re
 import os
+import base64
 
 # 1. CONFIGURACIÓN DE LA PÁGINA
+# Se actualiza el page_icon para usar el archivo .ico
 st.set_page_config(
     page_title="Tablero Mensajería - Sergem Mensajería",
-    page_icon="📊",
+    page_icon="sergemLogo.ico",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -57,9 +59,18 @@ if st.session_state['pagina_actual'] == 'Inicio':
     col_izq, col_espacio, col_der = st.columns([1.2, 0.2, 1.5])
     
     with col_izq:
-        st.markdown("""
+        # Lógica para inyectar el logo en Base64 dentro del HTML
+        logo_b64 = ""
+        if os.path.exists("sergemLogo.png"):
+            with open("sergemLogo.png", "rb") as img_file:
+                logo_b64 = base64.b64encode(img_file.read()).decode()
+        
+        # Si el logo existe, lo muestra. Si no, muestra el texto por defecto.
+        logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="width: 250px; display: block; margin: 0 auto 15px auto;">' if logo_b64 else '<h2 style="text-align: center;">SERGEM MENSAJERÍA</h2>'
+
+        st.markdown(f"""
 <div class="tarjeta-roja">
-    <h2 style="text-align: center;">SERGEM MENSAJERÍA</h2>
+    {logo_html}
     <hr style="border-top: 2px solid white; opacity: 0.5;">
     <h1 style="font-size: 50px;">Bienvenido (a)</h1>
     <p style="font-size: 18px; line-height: 1.6;">

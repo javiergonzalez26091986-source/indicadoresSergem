@@ -115,24 +115,26 @@ with st.sidebar:
             
             df_nuevo.columns = df_nuevo.columns.str.strip().str.upper()
             
-            # --- BLINDAJE DEFINITIVO CONTRA ERRORES JSON ---
+            # --- BLINDAJE DEFINITIVO CONTRA ERRORES JSON Y APPS SCRIPT ---
             # 1. Rellenar celdas vacías nativamente en Pandas
             df_nuevo = df_nuevo.fillna("") 
             # 2. Asegurar que fechas u otros tipos raros pasen como texto
             df_nuevo = df_nuevo.astype(str)
-            # 3. Dejar que Pandas genere el JSON (es inmune a los errores de la librería json de Python)
-            json_payload = df_nuevo.to_json(orient='records')
+            # 3. Dejar que Pandas genere el string JSON puro
+            json_str = df_nuevo.to_json(orient='records')
+            # 4. Convertirlo de nuevo a un objeto de Python limpio
+            payload_limpio = json.loads(json_str)
             
-            # Petición a Google Sheets (usamos 'data' en lugar de 'json' y pasamos las cabeceras manuales)
-            headers = {'Content-Type': 'application/json'}
-            respuesta = requests.post(URL_APPSCRIPT, data=json_payload, headers=headers)
+            # 5. Enviar a Google usando el método seguro (json=)
+            respuesta = requests.post(URL_APPSCRIPT, json=payload_limpio)
             
-            if respuesta.status_code == 200:
+            # Google puede responder con 200 (OK) o 302 (Redirección exitosa)
+            if respuesta.status_code in [200, 302]:
                 st.cache_data.clear() # Limpiamos caché para forzar la recarga
                 st.success("¡Base de datos actualizada! Los datos ya están en Google Sheets.")
                 st.rerun()
             else:
-                st.error("Hubo un error de comunicación con Google Sheets.")
+                st.error(f"Error de comunicación. Código HTTP: {respuesta.status_code}. Detalle de Google: {respuesta.text}")
 
 # ==========================================
 # 5. CARGA Y PROCESAMIENTO DE DATOS PRINCIPAL

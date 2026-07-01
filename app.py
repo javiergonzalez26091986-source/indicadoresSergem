@@ -98,6 +98,11 @@ def obtener_y_procesar_datos():
                     df['AÑO'] = df['FECHA DE CREACION'].dt.year.astype(str)
                     df['MES_NUM'] = df['FECHA DE CREACION'].dt.month
                     df['MES_NOMBRE'] = df['MES_NUM'].map(meses_es).fillna("Desconocido")
+                    
+                    # Cálculo de Semanas
+                    df['SEMANA_NUM'] = df['FECHA DE CREACION'].dt.isocalendar().week
+                    df['SEMANA'] = "Sem " + df['SEMANA_NUM'].astype(str).str.zfill(2)
+                    
                     dias_esp = {'Monday':'Lunes', 'Tuesday':'Martes', 'Wednesday':'Miércoles', 'Thursday':'Jueves', 'Friday':'Viernes', 'Saturday':'Sábado', 'Sunday':'Domingo'}
                     orden_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
                     df['DIA_SEMANA'] = pd.Categorical(df['FECHA DE CREACION'].dt.day_name().map(dias_esp), categories=orden_dias, ordered=True)
@@ -223,9 +228,11 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     st.button("🏠 Volver al Menú Principal", on_click=cambiar_pagina, args=('Inicio',))
     st.markdown("<div style='background-color: #99C2E2; padding: 15px; border-radius: 8px;'><h3 style='color: #FFFFFF !important; margin:0; font-weight:700;'>Filtros Globales de Control</h3></div><br>", unsafe_allow_html=True)
     
-    col_f0, col_f1, col_f2, col_f3, col_f4 = st.columns(5)
+    # Se añade la columna del filtro de semanas
+    col_f0, col_f1, col_sem, col_f2, col_f3, col_f4 = st.columns(6)
     with col_f0: ano_sel = st.multiselect("Año", sorted(df['AÑO'].dropna().unique()), default=sorted(df['AÑO'].dropna().unique()))
     with col_f1: mes_sel = st.multiselect("Mes", df[['MES_NUM', 'MES_NOMBRE']].dropna().drop_duplicates().sort_values('MES_NUM')['MES_NOMBRE'].tolist())
+    with col_sem: semana_sel = st.multiselect("Semana", sorted(df['SEMANA'].dropna().unique()) if 'SEMANA' in df.columns else [], placeholder="Todas")
     with col_f2: ciudad_sel = st.multiselect("Ciudad / Sede", sorted(df['CIUDAD_REAL'].dropna().unique()))
     with col_f3: centro_sel = st.multiselect("Centro de Costos", sorted(df['CENTRO DE COSTOS'].dropna().astype(str).unique()) if 'CENTRO DE COSTOS' in df.columns else [])
     with col_f4: tramite_sel = st.multiselect("Trámite", sorted(df['TRAMITE'].dropna().unique()) if 'TRAMITE' in df.columns else [])
@@ -233,6 +240,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     df_filtrado = df.copy()
     if ano_sel: df_filtrado = df_filtrado[df_filtrado['AÑO'].isin(ano_sel)]
     if mes_sel: df_filtrado = df_filtrado[df_filtrado['MES_NOMBRE'].isin(mes_sel)]
+    if semana_sel and 'SEMANA' in df_filtrado.columns: df_filtrado = df_filtrado[df_filtrado['SEMANA'].isin(semana_sel)]
     if ciudad_sel: df_filtrado = df_filtrado[df_filtrado['CIUDAD_REAL'].isin(ciudad_sel)]
     if centro_sel and 'CENTRO DE COSTOS' in df_filtrado.columns: df_filtrado = df_filtrado[df_filtrado['CENTRO DE COSTOS'].astype(str).isin(centro_sel)]
     if tramite_sel and 'TRAMITE' in df_filtrado.columns: df_filtrado = df_filtrado[df_filtrado['TRAMITE'].isin(tramite_sel)]
@@ -272,7 +280,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
 
         with col_graficos:
             st.markdown("<b>Solicitudes por Fecha y Ciudad</b>", unsafe_allow_html=True)
-            # Agrupamos sumando la cantidad de destinos reales
             res_mes_ciudad = df_filtrado.groupby(['MES_NUM', 'MES_NOMBRE', 'CIUDAD_REAL'])['CANTIDAD_DESTINOS'].sum().reset_index(name='Total')
             fig_combo = px.bar(res_mes_ciudad.sort_values('MES_NUM'), x='MES_NOMBRE', y='Total', color='CIUDAD_REAL', barmode='group', text='Total', color_discrete_sequence=paleta_datos)
             fig_combo.update_traces(textposition='outside')
@@ -364,34 +371,41 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             # Limpiar datos vacíos
             res_mensajero = res_mensajero[res_mensajero[col_mensajero].str.strip() != ""]
             
-            col_m1, col_m2 = st.columns(2)
+            # GRÁFICO 1: Productividad (Todo el ancho de la pantalla)
+            st.markdown("<br><b>🏆 Top Productividad (Vueltas Totales)</b>", unsafe_allow_html=True)
+            fig_prod = px.bar(res_mensajero.head(15).sort_values('Total_Vueltas', ascending=True), 
+                              x='Total_Vueltas', y=col_mensajero, orientation='h', 
+                              text='Total_Vueltas', color='Total_Vueltas', color_continuous_scale='Greens')
+            fig_prod.update_traces(textposition='outside')
+            st.plotly_chart(fig_prod, use_container_width=True)
             
-            with col_m1:
-                st.markdown("<b>🏆 Top Productividad (Vueltas Totales)</b>", unsafe_allow_html=True)
-                fig_prod = px.bar(res_mensajero.head(15).sort_values('Total_Vueltas', ascending=True), 
-                                  x='Total_Vueltas', y=col_mensajero, orientation='h', 
-                                  text='Total_Vueltas', color='Total_Vueltas', color_continuous_scale='Greens')
-                fig_prod.update_traces(textposition='outside')
-                st.plotly_chart(fig_prod, use_container_width=True)
-                
-            with col_m2:
-                st.markdown("<b>⏱️ Alerta de Eficiencia (Mayor Tiempo Promedio)</b>", unsafe_allow_html=True)
-                st.markdown("<small><i>Tiempos altos pueden indicar falta de gestión en la plataforma.</i></small>", unsafe_allow_html=True)
-                # Ordenar por los más demorados
-                res_demoras = res_mensajero.sort_values('Tiempo_Promedio_Hrs', ascending=False).head(15).sort_values('Tiempo_Promedio_Hrs', ascending=True)
-                
-                fig_ef = px.bar(res_demoras, x='Tiempo_Promedio_Hrs', y=col_mensajero, orientation='h', 
-                                text=res_demoras['Tiempo_Promedio_Hrs'].apply(lambda x: f"{x:.1f} h"), 
-                                color='Tiempo_Promedio_Hrs', color_continuous_scale='Reds')
-                fig_ef.update_traces(textposition='outside')
-                st.plotly_chart(fig_ef, use_container_width=True)
-                
+            st.markdown("<hr>", unsafe_allow_html=True)
+            
+            # GRÁFICO 2: Eficiencia (Todo el ancho de la pantalla)
+            st.markdown("<b>⏱️ Alerta de Eficiencia (Mayor Tiempo Promedio)</b>", unsafe_allow_html=True)
+            st.markdown("<small><i>Tiempos altos pueden indicar falta de gestión en la plataforma.</i></small>", unsafe_allow_html=True)
+            
+            # Ordenar por los más demorados
+            res_demoras = res_mensajero.sort_values('Tiempo_Promedio_Hrs', ascending=False).head(15).sort_values('Tiempo_Promedio_Hrs', ascending=True)
+            
+            fig_ef = px.bar(res_demoras, x='Tiempo_Promedio_Hrs', y=col_mensajero, orientation='h', 
+                            text=res_demoras['Tiempo_Promedio_Hrs'].apply(lambda x: f"{x:.1f} h"), 
+                            color='Tiempo_Promedio_Hrs', color_continuous_scale='Reds')
+            fig_ef.update_traces(textposition='outside')
+            st.plotly_chart(fig_ef, use_container_width=True)
+            
             st.markdown("<hr>", unsafe_allow_html=True)
             st.markdown("<b>📊 Tabla Detallada por Colaborador</b>", unsafe_allow_html=True)
             
-            # Formato presentable para la tabla
+            # Procesar la tabla y añadir la fila de totales
             res_mensajero['Tiempo_Promedio_Hrs'] = res_mensajero['Tiempo_Promedio_Hrs'].round(2)
             res_mensajero.columns = ['Colaborador', 'Total Vueltas Ponderadas', 'Tiempo Promedio (Horas)']
+            
+            if not res_mensajero.empty:
+                total_v_sum = res_mensajero['Total Vueltas Ponderadas'].sum()
+                tiempo_mean = res_mensajero['Tiempo Promedio (Horas)'].mean()
+                res_mensajero.loc[len(res_mensajero)] = ['📌 TOTAL GENERAL', total_v_sum, round(tiempo_mean, 2)]
+            
             st.dataframe(res_mensajero, use_container_width=True, hide_index=True)
             
         else:

@@ -303,7 +303,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
                 res_mes_ciudad = df_filtrado.groupby(['MES_NUM', 'MES_NOMBRE', 'CIUDAD_REAL']).size().reset_index(name='Total')
                 res_mes_ciudad = res_mes_ciudad.sort_values('MES_NUM')
                 
-                # Modificado a Gráfico de Barras Agrupadas con cantidades (Requerimiento de Doña Yesenia)
                 fig_combo = px.bar(res_mes_ciudad, x='MES_NOMBRE', y='Total', color='CIUDAD_REAL', 
                                    barmode='group', text='Total',
                                    color_discrete_sequence=paleta_datos)
@@ -338,7 +337,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     elif st.session_state['pagina_actual'] == 'Solicitudes':
         st.title("📝 Análisis Detallado de Volúmenes")
         
-        # Eliminada la gráfica de área. Añadida la Tabla Dinámica (Matriz) cruzando Sedes vs Meses
         if 'MES_NOMBRE' in df_filtrado.columns and 'CIUDAD_REAL' in df_filtrado.columns:
             st.markdown("<b>Matriz Operativa: Solicitudes por Sede y Mes</b>", unsafe_allow_html=True)
             
@@ -383,5 +381,9 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             st.markdown("<b>Participación por Centro de Costos</b>", unsafe_allow_html=True)
             if 'CENTRO DE COSTOS' in df_filtrado.columns:
                 res_part_cc = df_filtrado.groupby('CENTRO DE COSTOS').size().reset_index(name='Total')
-                fig_part_tree = px.treemap(res_part_cc, path=['CENTRO DE COSTOS'], values='Total', color='Total', color_continuous_scale='Blues')
-                st.plotly_chart(fig_part_tree, use_container_width=True)
+                res_part_cc = res_part_cc.sort_values(by='Total', ascending=True)
+                
+                fig_part_bar = px.bar(res_part_cc, x='Total', y='CENTRO DE COSTOS', orientation='h', text='Total', color='Total', color_continuous_scale='Blues')
+                fig_part_bar.update_traces(textposition='outside')
+                fig_part_bar.update_layout(margin=dict(t=10, b=10, l=10, r=10), plot_bgcolor='white', paper_bgcolor='rgba(0,0,0,0)')
+                st.plotly_chart(fig_part_bar, use_container_width=True)

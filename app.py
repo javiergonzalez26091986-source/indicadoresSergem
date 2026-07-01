@@ -378,12 +378,12 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
                 st.plotly_chart(fig_part_un, use_container_width=True)
             
         with col_p2:
-            st.markdown("<b>Participación por Centro de Costos</b>", unsafe_allow_html=True)
-            if 'CENTRO DE COSTOS' in df_filtrado.columns:
-                res_part_cc = df_filtrado.groupby('CENTRO DE COSTOS').size().reset_index(name='Total')
-                res_part_cc = res_part_cc.sort_values(by='Total', ascending=True)
+            st.markdown("<b>Participación por Trámite</b>", unsafe_allow_html=True)
+            if 'TRAMITE' in df_filtrado.columns:
+                res_part_tr = df_filtrado.groupby('TRAMITE').size().reset_index(name='Total')
+                res_part_tr = res_part_tr.sort_values(by='Total', ascending=True)
                 
-                fig_part_bar = px.bar(res_part_cc, x='Total', y='CENTRO DE COSTOS', orientation='h', text='Total', color='Total', color_continuous_scale='Blues')
+                fig_part_bar = px.bar(res_part_tr, x='Total', y='TRAMITE', orientation='h', text='Total', color='Total', color_continuous_scale='Blues')
                 fig_part_bar.update_traces(textposition='outside')
                 fig_part_bar.update_layout(margin=dict(t=10, b=10, l=10, r=10), plot_bgcolor='white', paper_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_part_bar, use_container_width=True)

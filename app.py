@@ -380,7 +380,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
         with col_p2:
             st.markdown("<b>Participación por Centro de Costos</b>", unsafe_allow_html=True)
             if 'CENTRO DE COSTOS' in df_filtrado.columns:
-                res_part_cc = df_filtrado.groupby('TRAMITE').size().reset_index(name='Total')
+                res_part_cc = df_filtrado.groupby('CENTRO DE COSTOS').size().reset_index(name='Total')
                 res_part_cc = res_part_cc.sort_values(by='Total', ascending=True)
                 
                 fig_part_bar = px.bar(res_part_cc, x='Total', y='CENTRO DE COSTOS', orientation='h', text='Total', color='Total', color_continuous_scale='Blues')

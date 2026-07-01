@@ -13,7 +13,7 @@ import time
 
 # 1. CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(
-    page_title="Tablero Mensajería - Sergem", 
+    page_title="Tablero Operativo - Sergem", 
     page_icon="sergemLogo.ico", 
     layout="wide", 
     initial_sidebar_state="expanded"
@@ -71,7 +71,6 @@ def extraer_ciudad(texto):
     return 'Otra'
 
 def extraer_cantidad_destinos(texto):
-    # Función para detectar si la solicitud incluye 2, 3 o más destinos
     if pd.isna(texto): return 1
     match = re.search(r'(\d+)', str(texto))
     if match:
@@ -99,9 +98,8 @@ def obtener_y_procesar_datos():
                     df['MES_NUM'] = df['FECHA DE CREACION'].dt.month
                     df['MES_NOMBRE'] = df['MES_NUM'].map(meses_es).fillna("Desconocido")
                     
-                    # Cálculo de Semanas
                     df['SEMANA_NUM'] = df['FECHA DE CREACION'].dt.isocalendar().week
-                    df['SEMANA'] = "Sem " + df['SEMANA_NUM'].astype(str).str.zfill(2)
+                    df['SEMANA'] = "Semana " + df['SEMANA_NUM'].astype(str).str.zfill(2)
                     
                     dias_esp = {'Monday':'Lunes', 'Tuesday':'Martes', 'Wednesday':'Miércoles', 'Thursday':'Jueves', 'Friday':'Viernes', 'Saturday':'Sábado', 'Sunday':'Domingo'}
                     orden_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
@@ -113,7 +111,6 @@ def obtener_y_procesar_datos():
                 else:
                     df['TIEMPO_HORAS'] = 0
 
-                # Aplicación de extracción de Ciudad y Ponderación de Vueltas
                 if 'TIPO DE SERVICIO' in df.columns:
                     df['CIUDAD_REAL'] = df['TIPO DE SERVICIO'].apply(extraer_ciudad)
                     df['CANTIDAD_DESTINOS'] = df['TIPO DE SERVICIO'].apply(extraer_cantidad_destinos)
@@ -132,10 +129,10 @@ def obtener_y_procesar_datos():
 df = obtener_y_procesar_datos()
 
 # ==========================================
-# 5. MENSAJEROS Y CONFIGURACIÓN (Panel Lateral)
+# 5. CONFIGURACIÓN (Panel Lateral)
 # ==========================================
 with st.sidebar:
-    st.markdown("### ⚙️ Configuración Operativa")
+    st.markdown("### ■ Configuración Operativa")
     mensajeros_config = {
         'Bogota': st.number_input("Bogotá", value=7.0, step=0.5),
         'Barranquilla': st.number_input("Barranquilla", value=3.0, step=0.5),
@@ -147,8 +144,8 @@ with st.sidebar:
     }
     
     st.markdown("---")
-    st.markdown("### 📥 Actualizar Base de Datos")
-    archivo_subido = st.file_uploader("Subir nuevo ORIGINAL WIP", type=['xlsx', 'xls', 'csv'])
+    st.markdown("### ■ Actualizar Base de Datos")
+    archivo_subido = st.file_uploader("Subir archivo de origen", type=['xlsx', 'xls', 'csv'])
     
     if archivo_subido is not None and st.button("Procesar y Subir"):
         if archivo_subido.name.endswith('.csv'): df_nuevo = pd.read_csv(archivo_subido, sep=';', encoding='utf-8')
@@ -161,7 +158,7 @@ with st.sidebar:
         total_filas = len(df_nuevo)
         tamano_lote = 500 
         
-        st.markdown("⏳ **Sincronizando...**")
+        st.markdown("Sincronizando registros...")
         barra_progreso = st.progress(0)
         
         exito = True
@@ -180,7 +177,7 @@ with st.sidebar:
         
         if exito:
             st.cache_data.clear()
-            st.success("✅ ¡Base de datos sincronizada!")
+            st.success("Base de datos sincronizada exitosamente.")
             st.rerun()
 
 # ==========================================
@@ -204,39 +201,58 @@ if st.session_state['pagina_actual'] == 'Inicio':
         <div class="tarjeta-roja">
             {logo_html}
             <hr style="border-top: 2px solid white; opacity: 0.5;">
-            <h1 style="font-size: 50px; font-weight: 800;">Bienvenido (a)</h1>
-            <p style="font-size: 18px; line-height: 1.6; opacity: 0.95;">Este aplicativo permite visualizar la operatividad y la eficiencia de nuestra operación.</p>
+            <h1 style="font-size: 50px; font-weight: 800;">Bienvenido</h1>
+            <p style="font-size: 18px; line-height: 1.6; opacity: 0.95;">Tablero de control y medición de eficiencia operativa.</p>
         </div>
         """, unsafe_allow_html=True)
         
     with col_der:
         st.markdown("<h2 style='text-align: center; margin-top: 0px; margin-bottom: 25px; font-size: 34px; font-weight: 700;'>Menú Principal</h2>", unsafe_allow_html=True)
         if df.empty:
-            st.warning("⚠️ La base de datos está vacía o cargando. Use el panel lateral izquierdo para subir el archivo inicial (ORIGINAL WIP) a Google Sheets.")
+            st.warning("La base de datos se encuentra vacía. Cargue un archivo en el panel de configuración.")
         else:
-            st.button("📊 Tablero General", on_click=cambiar_pagina, args=('Tablero',))
+            st.button("► Tablero General", on_click=cambiar_pagina, args=('Tablero',))
             st.markdown("<div style='margin-bottom: 14px;'></div>", unsafe_allow_html=True)
-            st.button("📝 Volúmenes de Solicitud", on_click=cambiar_pagina, args=('Solicitudes',))
+            st.button("► Volúmenes de Solicitud", on_click=cambiar_pagina, args=('Solicitudes',))
             st.markdown("<div style='margin-bottom: 14px;'></div>", unsafe_allow_html=True)
-            st.button("⏱️ Medición de Tiempos", on_click=cambiar_pagina, args=('Tiempo',))
+            st.button("► Medición de Tiempos", on_click=cambiar_pagina, args=('Tiempo',))
             st.markdown("<div style='margin-bottom: 14px;'></div>", unsafe_allow_html=True)
-            st.button("📈 Cuotas de Participación", on_click=cambiar_pagina, args=('Participacion',))
+            st.button("► Cuotas de Participación", on_click=cambiar_pagina, args=('Participacion',))
             st.markdown("<div style='margin-bottom: 14px;'></div>", unsafe_allow_html=True)
-            st.button("🧑‍💼 Análisis de Mensajeros", on_click=cambiar_pagina, args=('Mensajeros',))
+            st.button("► Análisis de Colaboradores", on_click=cambiar_pagina, args=('Mensajeros',))
 
 elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
-    st.button("🏠 Volver al Menú Principal", on_click=cambiar_pagina, args=('Inicio',))
+    st.button("◄ Volver al Menú Principal", on_click=cambiar_pagina, args=('Inicio',))
     st.markdown("<div style='background-color: #99C2E2; padding: 15px; border-radius: 8px;'><h3 style='color: #FFFFFF !important; margin:0; font-weight:700;'>Filtros Globales de Control</h3></div><br>", unsafe_allow_html=True)
     
-    # Se añade la columna del filtro de semanas
     col_f0, col_f1, col_sem, col_f2, col_f3, col_f4 = st.columns(6)
-    with col_f0: ano_sel = st.multiselect("Año", sorted(df['AÑO'].dropna().unique()), default=sorted(df['AÑO'].dropna().unique()))
-    with col_f1: mes_sel = st.multiselect("Mes", df[['MES_NUM', 'MES_NOMBRE']].dropna().drop_duplicates().sort_values('MES_NUM')['MES_NOMBRE'].tolist())
-    with col_sem: semana_sel = st.multiselect("Semana", sorted(df['SEMANA'].dropna().unique()) if 'SEMANA' in df.columns else [], placeholder="Todas")
-    with col_f2: ciudad_sel = st.multiselect("Ciudad / Sede", sorted(df['CIUDAD_REAL'].dropna().unique()))
-    with col_f3: centro_sel = st.multiselect("Centro de Costos", sorted(df['CENTRO DE COSTOS'].dropna().astype(str).unique()) if 'CENTRO DE COSTOS' in df.columns else [])
-    with col_f4: tramite_sel = st.multiselect("Trámite", sorted(df['TRAMITE'].dropna().unique()) if 'TRAMITE' in df.columns else [])
+    
+    # Filtros en Cascada
+    with col_f0: 
+        ano_sel = st.multiselect("Año", sorted(df['AÑO'].dropna().unique()), default=sorted(df['AÑO'].dropna().unique()))
+    
+    df_temp_ano = df[df['AÑO'].isin(ano_sel)] if ano_sel else df
+    
+    with col_f1: 
+        meses_disp = df_temp_ano[['MES_NUM', 'MES_NOMBRE']].dropna().drop_duplicates().sort_values('MES_NUM')['MES_NOMBRE'].tolist()
+        mes_sel = st.multiselect("Mes", meses_disp, placeholder="Todos")
+        
+    df_temp_mes = df_temp_ano[df_temp_ano['MES_NOMBRE'].isin(mes_sel)] if mes_sel else df_temp_ano
+    
+    with col_sem: 
+        semanas_disp = sorted(df_temp_mes['SEMANA'].dropna().unique()) if 'SEMANA' in df.columns else []
+        semana_sel = st.multiselect("Semana", semanas_disp, placeholder="Todas")
+        
+    with col_f2: 
+        ciudad_sel = st.multiselect("Ciudad / Sede", sorted(df['CIUDAD_REAL'].dropna().unique()), placeholder="Todas")
+        
+    with col_f3: 
+        centro_sel = st.multiselect("Centro de Costos", sorted(df['CENTRO DE COSTOS'].dropna().astype(str).unique()) if 'CENTRO DE COSTOS' in df.columns else [], placeholder="Todos")
+        
+    with col_f4: 
+        tramite_sel = st.multiselect("Trámite", sorted(df['TRAMITE'].dropna().unique()) if 'TRAMITE' in df.columns else [], placeholder="Todos")
 
+    # Aplicación de los filtros seleccionados al DataFrame final
     df_filtrado = df.copy()
     if ano_sel: df_filtrado = df_filtrado[df_filtrado['AÑO'].isin(ano_sel)]
     if mes_sel: df_filtrado = df_filtrado[df_filtrado['MES_NOMBRE'].isin(mes_sel)]
@@ -251,7 +267,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     # VISTA 1: TABLERO GENERAL (INDICADORES)
     # ==========================================
     if st.session_state['pagina_actual'] == 'Tablero':
-        # Sumamos las vueltas reales gracias al multiplicador de destinos
         total_solicitudes = int(df_filtrado['CANTIDAD_DESTINOS'].sum()) if 'CANTIDAD_DESTINOS' in df_filtrado.columns else len(df_filtrado)
         
         dias_habiles = 1
@@ -274,9 +289,9 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
 
         col_kpis, col_graficos = st.columns([1.5, 5])
         with col_kpis:
-            st.markdown(f"""<div class="kpi-card"><div class="kpi-title">🛵 Solicitudes Totales</div><div class="kpi-value">{total_solicitudes:,}</div></div>
-            <div class="kpi-card"><div class="kpi-title">📈 Vueltas/Mensajero/Día</div><div class="kpi-value">{promedio_diario:.1f}</div></div>
-            <div class="kpi-card"><div class="kpi-title">✅ Efectividad Operativa</div><div class="kpi-value">{eficacia:.1f}%</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class="kpi-card"><div class="kpi-title">Total Solicitudes</div><div class="kpi-value">{total_solicitudes:,}</div></div>
+            <div class="kpi-card"><div class="kpi-title">Promedio (Vueltas/Día)</div><div class="kpi-value">{promedio_diario:.1f}</div></div>
+            <div class="kpi-card"><div class="kpi-title">Efectividad Operativa</div><div class="kpi-value">{eficacia:.1f}%</div></div>""", unsafe_allow_html=True)
 
         with col_graficos:
             st.markdown("<b>Solicitudes por Fecha y Ciudad</b>", unsafe_allow_html=True)
@@ -289,11 +304,11 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     # VISTA 2: MEDICIÓN DE TIEMPOS
     # ==========================================
     elif st.session_state['pagina_actual'] == 'Tiempo':
-        st.title("⏱️ Análisis Gerencial de Tiempos Operativos")
+        st.title("■ Análisis Gerencial de Tiempos Operativos")
         if 'TIEMPO_HORAS' in df_filtrado.columns and 'TRAMITE' in df_filtrado.columns:
             col_t1, col_t2 = st.columns(2)
             with col_t1:
-                st.markdown("<b>Horas Totales Invertidas por Tipo de Gestión</b>", unsafe_allow_html=True)
+                st.markdown("<b>Horas Invertidas por Tipo de Gestión</b>", unsafe_allow_html=True)
                 res_tiempo = df_filtrado.groupby('TRAMITE')['TIEMPO_HORAS'].sum().reset_index().sort_values(by='TIEMPO_HORAS', ascending=True).tail(10)
                 fig_tramite = px.bar(res_tiempo, x='TIEMPO_HORAS', y='TRAMITE', orientation='h', text=res_tiempo['TIEMPO_HORAS'].apply(lambda x: f"{x:.0f} h"), color='TIEMPO_HORAS', color_continuous_scale='Blues')
                 st.plotly_chart(fig_tramite, use_container_width=True)
@@ -308,16 +323,15 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     # VISTA 3: SOLICITUDES
     # ==========================================
     elif st.session_state['pagina_actual'] == 'Solicitudes':
-        st.title("📝 Análisis Detallado de Volúmenes")
+        st.title("■ Análisis Detallado de Volúmenes")
         
         st.markdown("<b>Matriz Operativa: Solicitudes por Sede y Mes</b>", unsafe_allow_html=True)
-        # Sumamos la cantidad de destinos en la matriz
         pivot_df = pd.pivot_table(df_filtrado, index='CIUDAD_REAL', columns='MES_NOMBRE', values='CANTIDAD_DESTINOS', aggfunc='sum', fill_value=0)
         meses_orden = [m for m in ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] if m in pivot_df.columns]
         pivot_df = pivot_df[meses_orden]
         
         pivot_df['Total General'] = pivot_df.sum(axis=1)
-        pivot_df.loc['Total General'] = pivot_df.sum(axis=0)
+        pivot_df.loc['TOTAL GENERAL'] = pivot_df.sum(axis=0)
         
         pivot_df = pivot_df.reset_index().rename(columns={'CIUDAD_REAL': 'SEDE / MES'})
         st.dataframe(pivot_df, use_container_width=True, hide_index=True)
@@ -335,7 +349,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     # VISTA 4: PARTICIPACIÓN
     # ==========================================
     elif st.session_state['pagina_actual'] == 'Participacion':
-        st.title("📈 Análisis de Cuotas de Participación")
+        st.title("■ Análisis de Cuotas de Participación")
         col_p1, col_p2 = st.columns(2)
         with col_p1:
             st.markdown("<b>Participación Porcentual por Sede</b>", unsafe_allow_html=True)
@@ -352,61 +366,52 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
                 st.plotly_chart(fig_part_bar, use_container_width=True)
 
     # ==========================================
-    # VISTA 5: ANÁLISIS DE MENSAJEROS
+    # VISTA 5: ANÁLISIS DE COLABORADORES
     # ==========================================
     elif st.session_state['pagina_actual'] == 'Mensajeros':
-        st.title("🧑‍💼 Análisis de Productividad y Eficiencia por Mensajero")
-        st.markdown("Evaluación de volumen de entregas reales y tiempos promedios para detectar cuellos de botella y solicitudes abiertas excesivas.")
+        st.title("■ Análisis de Productividad y Eficiencia")
+        st.markdown("<p style='color: #64748B;'>Medición de volumen de entregas ponderadas y tiempos promedios para detectar cuellos de botella en la operación.</p>", unsafe_allow_html=True)
         
-        # Buscamos dinámicamente la columna que corresponde al Mensajero o Colaborador
         col_mensajero = next((col for col in ['COLABORADOR', 'MENSAJERO', 'RESPONSABLE', 'USUARIO'] if col in df_filtrado.columns), None)
         
         if col_mensajero and 'TIEMPO_HORAS' in df_filtrado.columns:
-            # Consolidado por Mensajero
             res_mensajero = df_filtrado.groupby(col_mensajero).agg(
                 Total_Vueltas=('CANTIDAD_DESTINOS', 'sum'),
                 Tiempo_Promedio_Hrs=('TIEMPO_HORAS', 'mean')
             ).reset_index().sort_values('Total_Vueltas', ascending=False)
             
-            # Limpiar datos vacíos
             res_mensajero = res_mensajero[res_mensajero[col_mensajero].str.strip() != ""]
             
-            # GRÁFICO 1: Productividad (Todo el ancho de la pantalla)
-            st.markdown("<br><b>🏆 Top Productividad (Vueltas Totales)</b>", unsafe_allow_html=True)
+            st.markdown("<br><b>► Índice de Productividad (Volumen de Vueltas)</b>", unsafe_allow_html=True)
             fig_prod = px.bar(res_mensajero.head(15).sort_values('Total_Vueltas', ascending=True), 
                               x='Total_Vueltas', y=col_mensajero, orientation='h', 
                               text='Total_Vueltas', color='Total_Vueltas', color_continuous_scale='Greens')
             fig_prod.update_traces(textposition='outside')
             st.plotly_chart(fig_prod, use_container_width=True)
             
-            st.markdown("<hr>", unsafe_allow_html=True)
+            st.markdown("<hr style='opacity: 0.2;'>", unsafe_allow_html=True)
             
-            # GRÁFICO 2: Eficiencia (Todo el ancho de la pantalla)
-            st.markdown("<b>⏱️ Alerta de Eficiencia (Mayor Tiempo Promedio)</b>", unsafe_allow_html=True)
-            st.markdown("<small><i>Tiempos altos pueden indicar falta de gestión en la plataforma.</i></small>", unsafe_allow_html=True)
+            st.markdown("<b>► Control de Eficiencia (Mayor Tiempo Promedio)</b>", unsafe_allow_html=True)
             
-            # Ordenar por los más demorados
             res_demoras = res_mensajero.sort_values('Tiempo_Promedio_Hrs', ascending=False).head(15).sort_values('Tiempo_Promedio_Hrs', ascending=True)
-            
             fig_ef = px.bar(res_demoras, x='Tiempo_Promedio_Hrs', y=col_mensajero, orientation='h', 
                             text=res_demoras['Tiempo_Promedio_Hrs'].apply(lambda x: f"{x:.1f} h"), 
                             color='Tiempo_Promedio_Hrs', color_continuous_scale='Reds')
             fig_ef.update_traces(textposition='outside')
             st.plotly_chart(fig_ef, use_container_width=True)
             
-            st.markdown("<hr>", unsafe_allow_html=True)
-            st.markdown("<b>📊 Tabla Detallada por Colaborador</b>", unsafe_allow_html=True)
+            st.markdown("<hr style='opacity: 0.2;'>", unsafe_allow_html=True)
+            st.markdown("<b>► Consolidado General por Colaborador</b>", unsafe_allow_html=True)
             
-            # Procesar la tabla y añadir la fila de totales
             res_mensajero['Tiempo_Promedio_Hrs'] = res_mensajero['Tiempo_Promedio_Hrs'].round(2)
             res_mensajero.columns = ['Colaborador', 'Total Vueltas Ponderadas', 'Tiempo Promedio (Horas)']
             
             if not res_mensajero.empty:
                 total_v_sum = res_mensajero['Total Vueltas Ponderadas'].sum()
                 tiempo_mean = res_mensajero['Tiempo Promedio (Horas)'].mean()
-                res_mensajero.loc[len(res_mensajero)] = ['📌 TOTAL GENERAL', total_v_sum, round(tiempo_mean, 2)]
+                res_mensajero.loc[len(res_mensajero)] = ['TOTAL GENERAL', total_v_sum, round(tiempo_mean, 2)]
             
             st.dataframe(res_mensajero, use_container_width=True, hide_index=True)
             
         else:
-            st.warning("⚠️ No se encontró la columna de Colaborador/Mensajero en la base de datos para generar este reporte.")
+            st.warning("No se encontró la columna de Colaborador en la base de datos para generar este reporte.")

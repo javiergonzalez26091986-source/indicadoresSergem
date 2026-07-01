@@ -191,7 +191,6 @@ df_filtrado = pd.DataFrame()
 
 if st.session_state['pagina_actual'] == 'Inicio':
     st.markdown("<br>", unsafe_allow_html=True)
-    # Calibramos las proporciones de las columnas para equilibrar la tarjeta y el menú lateral derecho
     col_izq, col_espacio, col_der = st.columns([1.2, 0.1, 1.5])
     
     with col_izq:
@@ -212,12 +211,10 @@ if st.session_state['pagina_actual'] == 'Inicio':
         """, unsafe_allow_html=True)
         
     with col_der:
-        # Título del menú principal alineado perfectamente con el tope de la tarjeta izquierda
         st.markdown("<h2 style='text-align: center; margin-top: 0px; margin-bottom: 25px; font-size: 34px; font-weight: 700;'>Menú Principal</h2>", unsafe_allow_html=True)
         if df.empty:
             st.warning("⚠️ La base de datos está vacía o cargando. Use el panel lateral izquierdo para subir el archivo inicial (ORIGINAL WIP) a Google Sheets.")
         else:
-            # Lista vertical pura con espaciado controlado por bloques HTML para lograr simetría exacta
             st.button("📊 Tablero General", on_click=cambiar_pagina, args=('Tablero',))
             st.markdown("<div style='margin-bottom: 14px;'></div>", unsafe_allow_html=True)
             st.button("📝 Volúmenes de Solicitud", on_click=cambiar_pagina, args=('Solicitudes',))
@@ -229,7 +226,6 @@ if st.session_state['pagina_actual'] == 'Inicio':
 elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     
     st.button("🏠 Volver al Menú Principal", on_click=cambiar_pagina, args=('Inicio',))
-    # TEXTO CON INLINE CSS FUERTE PARA EVITAR SOBREESCRITURAS DE COLOR
     st.markdown("<div style='background-color: #99C2E2; padding: 15px; border-radius: 8px;'><h3 style='color: #FFFFFF !important; margin:0; font-weight:700;'>Filtros Globales de Control</h3></div><br>", unsafe_allow_html=True)
     
     col_f0, col_f1, col_f2, col_f3, col_f4 = st.columns(5)
@@ -307,8 +303,12 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
                 res_mes_ciudad = df_filtrado.groupby(['MES_NUM', 'MES_NOMBRE', 'CIUDAD_REAL']).size().reset_index(name='Total')
                 res_mes_ciudad = res_mes_ciudad.sort_values('MES_NUM')
                 
-                fig_combo = px.bar(res_mes_ciudad, x='MES_NOMBRE', y='Total', color='CIUDAD_REAL', color_discrete_sequence=paleta_datos)
-                fig_combo.update_layout(margin=dict(t=10, b=10, l=10, r=10), plot_bgcolor='white', paper_bgcolor='rgba(0,0,0,0)')
+                # Modificado a Gráfico de Barras Agrupadas con cantidades (Requerimiento de Doña Yesenia)
+                fig_combo = px.bar(res_mes_ciudad, x='MES_NOMBRE', y='Total', color='CIUDAD_REAL', 
+                                   barmode='group', text='Total',
+                                   color_discrete_sequence=paleta_datos)
+                fig_combo.update_traces(textposition='outside')
+                fig_combo.update_layout(margin=dict(t=30, b=10, l=10, r=10), plot_bgcolor='white', paper_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_combo, use_container_width=True)
 
     # ==========================================
@@ -337,22 +337,32 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     # ==========================================
     elif st.session_state['pagina_actual'] == 'Solicitudes':
         st.title("📝 Análisis Detallado de Volúmenes")
-        col_graf_s1, col_graf_s2 = st.columns(2)
-        with col_graf_s1:
-            if 'MES_NOMBRE' in df_filtrado.columns:
-                st.markdown("<b>Crecimiento Mensual de Solicitudes</b>", unsafe_allow_html=True)
-                res_mes = df_filtrado.groupby(['MES_NUM', 'MES_NOMBRE']).size().reset_index(name='Cantidad')
-                res_mes = res_mes.sort_values('MES_NUM')
-                fig_mes = px.area(res_mes, x='MES_NOMBRE', y='Cantidad', color_discrete_sequence=['#457B9D'])
-                st.plotly_chart(fig_mes, use_container_width=True)
+        
+        # Eliminada la gráfica de área. Añadida la Tabla Dinámica (Matriz) cruzando Sedes vs Meses
+        if 'MES_NOMBRE' in df_filtrado.columns and 'CIUDAD_REAL' in df_filtrado.columns:
+            st.markdown("<b>Matriz Operativa: Solicitudes por Sede y Mes</b>", unsafe_allow_html=True)
             
-        with col_graf_s2:
-            if 'CIUDAD_REAL' in df_filtrado.columns:
-                st.markdown("<b>Distribución Absoluta de Servicios por Sede</b>", unsafe_allow_html=True)
-                res_un = df_filtrado.groupby('CIUDAD_REAL').size().reset_index(name='Solicitudes').sort_values(by='Solicitudes', ascending=False)
-                fig_un = px.bar(res_un, x='CIUDAD_REAL', y='Solicitudes', color='CIUDAD_REAL', color_discrete_sequence=paleta_datos)
-                fig_un.update_layout(showlegend=False)
-                st.plotly_chart(fig_un, use_container_width=True)
+            pivot_df = pd.pivot_table(df_filtrado, index='CIUDAD_REAL', columns='MES_NOMBRE', aggfunc='size', fill_value=0)
+            
+            meses_orden = [m for m in ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] if m in pivot_df.columns]
+            pivot_df = pivot_df[meses_orden]
+            
+            pivot_df['Total General'] = pivot_df.sum(axis=1)
+            pivot_df.loc['Total General'] = pivot_df.sum(axis=0)
+            
+            pivot_df = pivot_df.reset_index().rename(columns={'CIUDAD_REAL': 'SEDE / MES'})
+            
+            st.dataframe(pivot_df, use_container_width=True, hide_index=True)
+            
+        st.markdown("<hr>", unsafe_allow_html=True)
+            
+        if 'CIUDAD_REAL' in df_filtrado.columns:
+            st.markdown("<b>Distribución Absoluta de Servicios por Sede</b>", unsafe_allow_html=True)
+            res_un = df_filtrado.groupby('CIUDAD_REAL').size().reset_index(name='Solicitudes').sort_values(by='Solicitudes', ascending=False)
+            fig_un = px.bar(res_un, x='CIUDAD_REAL', y='Solicitudes', color='CIUDAD_REAL', color_discrete_sequence=paleta_datos, text='Solicitudes')
+            fig_un.update_traces(textposition='outside')
+            fig_un.update_layout(margin=dict(t=30, b=10, l=10, r=10), showlegend=False, plot_bgcolor='white', paper_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig_un, use_container_width=True)
 
     # ==========================================
     # VISTA 4: PARTICIPACIÓN

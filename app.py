@@ -303,9 +303,9 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
                 res_mes_ciudad = df_filtrado.groupby(['MES_NUM', 'MES_NOMBRE', 'CIUDAD_REAL']).size().reset_index(name='Total')
                 res_mes_ciudad = res_mes_ciudad.sort_values('MES_NUM')
                 
-                # Modificado a Gráfico de Barras Agrupadas con cantidades (Requerimiento de Doña Yesenia)
-                fig_combo = px.bar(res_mes_ciudad, x='MES_NOMBRE', y='Total', color='CIUDAD_REAL', 
-                                   barmode='group', text='Total',
+                # Modificado a Gráfico de Barras Horizontales Agrupadas (Requerimiento final de Doña Yesenia)
+                fig_combo = px.bar(res_mes_ciudad, x='Total', y='MES_NOMBRE', color='CIUDAD_REAL', 
+                                   orientation='h', barmode='group', text='Total',
                                    color_discrete_sequence=paleta_datos)
                 fig_combo.update_traces(textposition='outside')
                 fig_combo.update_layout(margin=dict(t=30, b=10, l=10, r=10), plot_bgcolor='white', paper_bgcolor='rgba(0,0,0,0)')
@@ -338,7 +338,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     elif st.session_state['pagina_actual'] == 'Solicitudes':
         st.title("📝 Análisis Detallado de Volúmenes")
         
-        # Eliminada la gráfica de área. Añadida la Tabla Dinámica (Matriz) cruzando Sedes vs Meses
         if 'MES_NOMBRE' in df_filtrado.columns and 'CIUDAD_REAL' in df_filtrado.columns:
             st.markdown("<b>Matriz Operativa: Solicitudes por Sede y Mes</b>", unsafe_allow_html=True)
             

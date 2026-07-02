@@ -70,17 +70,11 @@ def extraer_ciudad(texto):
         if c in t: return c.capitalize()
     return 'Otra'
 
-def extraer_cantidad_destinos(texto):
-    if pd.isna(texto): return 1
-    match = re.search(r'(\d+)', str(texto))
-    if match:
-        return int(match.group(1))
-    return 1
-
 # ==========================================
-# 4. PROCESAMIENTO EN CACHÉ
+# 4. PROCESAMIENTO EN CACHÉ (OPTIMIZADO)
 # ==========================================
-@st.cache_data(ttl=300, show_spinner=False)
+# Se aumentó el TTL a 3600 (1 hora) para evitar que la app se recargue durante la presentación
+@st.cache_data(ttl=3600, show_spinner=False)
 def obtener_y_procesar_datos():
     try:
         req = requests.get(URL_APPSCRIPT, timeout=60)
@@ -113,7 +107,8 @@ def obtener_y_procesar_datos():
 
                 if 'TIPO DE SERVICIO' in df.columns:
                     df['CIUDAD_REAL'] = df['TIPO DE SERVICIO'].apply(extraer_ciudad)
-                    df['CANTIDAD_DESTINOS'] = df['TIPO DE SERVICIO'].apply(extraer_cantidad_destinos)
+                    # Vectorizado para máxima velocidad de carga
+                    df['CANTIDAD_DESTINOS'] = df['TIPO DE SERVICIO'].astype(str).str.extract(r'(\d+)')[0].fillna(1).astype(int)
                 elif 'UNIDAD DE NEGOCIO' in df.columns:
                     df['CIUDAD_REAL'] = df['UNIDAD DE NEGOCIO'].apply(extraer_ciudad)
                     df['CANTIDAD_DESTINOS'] = 1
@@ -264,16 +259,19 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     paleta_datos = ['#1D3557', '#457B9D', '#A8DADC', '#E30613', '#F4A261', '#2A9D8F', '#E9C46A']
 
     # ==========================================
+    # CÁLCULO GLOBAL DE DÍAS HÁBILES
+    # ==========================================
+    dias_habiles = 1
+    if not df_filtrado.empty and 'FECHA DE CREACION' in df_filtrado.columns:
+        fecha_min, fecha_max = df_filtrado['FECHA DE CREACION'].min().date(), df_filtrado['FECHA DE CREACION'].max().date()
+        dias_habiles = np.busday_count(fecha_min, fecha_max + timedelta(days=1), weekmask='1111110')
+        if dias_habiles == 0: dias_habiles = 1
+
+    # ==========================================
     # VISTA 1: TABLERO GENERAL (INDICADORES)
     # ==========================================
     if st.session_state['pagina_actual'] == 'Tablero':
         total_solicitudes = int(df_filtrado['CANTIDAD_DESTINOS'].sum()) if 'CANTIDAD_DESTINOS' in df_filtrado.columns else len(df_filtrado)
-        
-        dias_habiles = 1
-        if 'FECHA DE CREACION' in df_filtrado.columns and total_solicitudes > 0:
-            fecha_min, fecha_max = df_filtrado['FECHA DE CREACION'].min().date(), df_filtrado['FECHA DE CREACION'].max().date()
-            dias_habiles = np.busday_count(fecha_min, fecha_max + timedelta(days=1), weekmask='1111110')
-            if dias_habiles == 0: dias_habiles = 1
         
         ciudades_en_pantalla = df_filtrado['CIUDAD_REAL'].unique()
         mensajeros_activos = sum([mensajeros_config.get(c, 0) for c in ciudades_en_pantalla])
@@ -403,13 +401,19 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             st.markdown("<hr style='opacity: 0.2;'>", unsafe_allow_html=True)
             st.markdown("<b>► Consolidado General por Colaborador</b>", unsafe_allow_html=True)
             
+            # Incorporación de la nueva métrica de Vueltas Diarias
+            num_mensajeros = len(res_mensajero)
+            res_mensajero['Promedio Vueltas/Día'] = (res_mensajero['Total_Vueltas'] / dias_habiles).round(1)
             res_mensajero['Tiempo_Promedio_Hrs'] = res_mensajero['Tiempo_Promedio_Hrs'].round(2)
-            res_mensajero.columns = ['Colaborador', 'Total Vueltas Ponderadas', 'Tiempo Promedio (Horas)']
+            
+            res_mensajero.columns = ['Colaborador', 'Total Vueltas Ponderadas', 'Tiempo Promedio (Horas)', 'Promedio Vueltas/Día']
             
             if not res_mensajero.empty:
                 total_v_sum = res_mensajero['Total Vueltas Ponderadas'].sum()
                 tiempo_mean = res_mensajero['Tiempo Promedio (Horas)'].mean()
-                res_mensajero.loc[len(res_mensajero)] = ['TOTAL GENERAL', total_v_sum, round(tiempo_mean, 2)]
+                promedio_total = total_v_sum / dias_habiles / num_mensajeros if num_mensajeros > 0 else 0
+                
+                res_mensajero.loc[num_mensajeros] = ['TOTAL GENERAL', total_v_sum, round(tiempo_mean, 2), round(promedio_total, 1)]
             
             st.dataframe(res_mensajero, use_container_width=True, hide_index=True)
             

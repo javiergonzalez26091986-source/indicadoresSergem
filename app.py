@@ -84,15 +84,12 @@ def obtener_y_procesar_datos():
                 df = pd.DataFrame(datos)
                 df.columns = df.columns.str.strip().str.upper()
                 
-                # --- NUEVA LÓGICA: NORMALIZAR NOMBRES DE COLABORADORES ---
+                # --- LÓGICA: NORMALIZAR NOMBRES DE COLABORADORES ---
                 for col_n in ['COLABORADOR', 'MENSAJERO', 'RESPONSABLE', 'USUARIO']:
                     if col_n in df.columns:
                         df[col_n] = df[col_n].fillna('')
-                        # strip elimina espacios a los lados, title pone la primera en mayúscula, 
-                        # y join(split()) elimina espacios dobles entre nombres.
                         df[col_n] = df[col_n].astype(str).str.strip().str.title().apply(lambda x: ' '.join(x.split()))
                         df[col_n] = df[col_n].replace('Nan', '') 
-                # ---------------------------------------------------------
 
                 if 'FECHA DE CREACION' in df.columns:
                     df['FECHA DE CREACION'] = pd.to_datetime(df['FECHA DE CREACION'], dayfirst=True, errors='coerce')
@@ -349,7 +346,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             fig_combo.update_traces(textposition='outside')
             st.plotly_chart(fig_combo, use_container_width=True)
 
-        # --- NUEVA SECCIÓN AMPLIADA: DESGLOSE DE AFECTACIÓN DE EFECTIVIDAD ---
+        # --- SECCIÓN: DESGLOSE DE AFECTACIÓN DE EFECTIVIDAD ---
         if 'ESTADO' in df_filtrado.columns:
             st.markdown("<br>", unsafe_allow_html=True)
             if not fallidos_df.empty:
@@ -372,19 +369,15 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
                         if 'TRAMITE' in fallidos_df.columns:
                             st.markdown("<b>Top Trámites con Fallos</b>", unsafe_allow_html=True)
                             fallos_tramite = fallidos_df.groupby('TRAMITE')['CANTIDAD_DESTINOS'].sum().reset_index(name='Total').sort_values('Total', ascending=True).tail(10)
-                            # Usamos un color de la paleta (rojo) para denotar que es una métrica de fallo
                             fig_ft = px.bar(fallos_tramite, x='Total', y='TRAMITE', orientation='h', text='Total')
                             fig_ft.update_traces(marker_color='#E30613', textposition='outside')
                             st.plotly_chart(fig_ft, use_container_width=True)
 
-                    # 2. Tabla consolidada por Mensajero, Ciudad y Trámite
+                    # 2. Tabla consolidada por Mensajero y Ciudad (sin Trámite)
                     if col_mensajero:
                         st.markdown(f"<br><b>Consolidado de Fallos por {col_mensajero.title()}</b>", unsafe_allow_html=True)
-                        columnas_agrupacion = [col_mensajero, 'CIUDAD_REAL']
-                        if 'TRAMITE' in fallidos_df.columns:
-                            columnas_agrupacion.append('TRAMITE')
-                            
-                        res_mensajero_fallos = fallidos_df.groupby(columnas_agrupacion)['CANTIDAD_DESTINOS'].sum().reset_index(name='Total Vueltas Fallidas').sort_values('Total Vueltas Fallidas', ascending=False)
+                        # MODIFICADO: Añadimos CIUDAD_REAL al agrupamiento para no perder de vista la sede, pero excluimos el trámite.
+                        res_mensajero_fallos = fallidos_df.groupby([col_mensajero, 'CIUDAD_REAL'])['CANTIDAD_DESTINOS'].sum().reset_index(name='Total Vueltas Fallidas').sort_values('Total Vueltas Fallidas', ascending=False)
                         st.dataframe(res_mensajero_fallos, use_container_width=True, hide_index=True)
 
                     st.markdown("<hr style='opacity: 0.2;'>", unsafe_allow_html=True)

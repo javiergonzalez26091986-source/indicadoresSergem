@@ -373,23 +373,31 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
                             fig_ft.update_traces(marker_color='#E30613', textposition='outside')
                             st.plotly_chart(fig_ft, use_container_width=True)
 
-                    # 2. Tabla consolidada por Mensajero y Ciudad (sin Trámite)
+                    # 2. Tabla consolidada por Mensajero
                     if col_mensajero:
                         st.markdown(f"<br><b>Consolidado de Fallos por {col_mensajero.title()}</b>", unsafe_allow_html=True)
-                        # MODIFICADO: Añadimos CIUDAD_REAL al agrupamiento para no perder de vista la sede, pero excluimos el trámite.
-                        res_mensajero_fallos = fallidos_df.groupby([col_mensajero, 'CIUDAD_REAL'])['CANTIDAD_DESTINOS'].sum().reset_index(name='Total Vueltas Fallidas').sort_values('Total Vueltas Fallidas', ascending=False)
+                        res_mensajero_fallos = fallidos_df.groupby(col_mensajero)['CANTIDAD_DESTINOS'].sum().reset_index(name='Total Vueltas Fallidas').sort_values('Total Vueltas Fallidas', ascending=False)
                         st.dataframe(res_mensajero_fallos, use_container_width=True, hide_index=True)
 
                     st.markdown("<hr style='opacity: 0.2;'>", unsafe_allow_html=True)
                     st.markdown("<b>Detalle Registro a Registro (Solicitudes Fallidas)</b>", unsafe_allow_html=True)
                     
+                    # --- NUEVO FILTRO POR MENSAJERO ---
+                    df_detalle_fallidos = fallidos_df.copy()
+                    if col_mensajero:
+                        mensajeros_disponibles = sorted(df_detalle_fallidos[col_mensajero].dropna().unique())
+                        mensajero_seleccionado = st.multiselect(f"Filtrar detalle por {col_mensajero.title()}:", mensajeros_disponibles, placeholder="Todos")
+                        
+                        if mensajero_seleccionado:
+                            df_detalle_fallidos = df_detalle_fallidos[df_detalle_fallidos[col_mensajero].isin(mensajero_seleccionado)]
+                    
                     columnas_deseadas = ['FECHA DE CREACION', 'CIUDAD_REAL', col_mensajero, 'TRAMITE', 'ESTADO', 'CANTIDAD_DESTINOS', 'OBSERVACIONES']
-                    columnas_a_mostrar = [col for col in columnas_deseadas if col and col in fallidos_df.columns]
+                    columnas_a_mostrar = [col for col in columnas_deseadas if col and col in df_detalle_fallidos.columns]
                     
                     if columnas_a_mostrar:
-                        st.dataframe(fallidos_df[columnas_a_mostrar].sort_values('FECHA DE CREACION', ascending=False), use_container_width=True, hide_index=True)
+                        st.dataframe(df_detalle_fallidos[columnas_a_mostrar].sort_values('FECHA DE CREACION', ascending=False), use_container_width=True, hide_index=True)
                     else:
-                        st.dataframe(fallidos_df, use_container_width=True, hide_index=True)
+                        st.dataframe(df_detalle_fallidos, use_container_width=True, hide_index=True)
             else:
                 st.success("🎉 ¡Excelente! No hay servicios fallidos en los filtros seleccionados. La efectividad es del 100%.")
 

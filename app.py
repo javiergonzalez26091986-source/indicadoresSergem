@@ -10,6 +10,7 @@ import base64
 import requests
 import json
 import time
+import holidays  # <-- NUEVA LIBRERÍA PARA FESTIVOS
 
 # 1. CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(
@@ -83,6 +84,16 @@ def obtener_y_procesar_datos():
                 df = pd.DataFrame(datos)
                 df.columns = df.columns.str.strip().str.upper()
                 
+                # --- NUEVA LÓGICA: NORMALIZAR NOMBRES DE COLABORADORES ---
+                for col_n in ['COLABORADOR', 'MENSAJERO', 'RESPONSABLE', 'USUARIO']:
+                    if col_n in df.columns:
+                        df[col_n] = df[col_n].fillna('')
+                        # strip elimina espacios a los lados, title pone la primera en mayúscula, 
+                        # y join(split()) elimina espacios dobles entre nombres.
+                        df[col_n] = df[col_n].astype(str).str.strip().str.title().apply(lambda x: ' '.join(x.split()))
+                        df[col_n] = df[col_n].replace('Nan', '') 
+                # ---------------------------------------------------------
+
                 if 'FECHA DE CREACION' in df.columns:
                     df['FECHA DE CREACION'] = pd.to_datetime(df['FECHA DE CREACION'], dayfirst=True, errors='coerce')
                     df['FECHA DE CREACION'] = df['FECHA DE CREACION'].fillna(pd.Timestamp.now())
@@ -146,7 +157,6 @@ with st.sidebar:
         
         df_nuevo.columns = df_nuevo.columns.str.strip().str.upper()
         
-        # --- NUEVA LÓGICA DE VALIDACIÓN POR #WIP ---
         if '#WIP' in df_nuevo.columns and not df.empty and '#WIP' in df.columns:
             wips_existentes = set(df['#WIP'].astype(str).str.strip())
             df_nuevo['#WIP_TEMP'] = df_nuevo['#WIP'].astype(str).str.strip()
@@ -165,7 +175,6 @@ with st.sidebar:
                 st.info(f"ℹ️ Se evitaron {registros_omitidos} duplicados. Subiendo únicamente {registros_nuevos} registros nuevos.")
         elif '#WIP' not in df_nuevo.columns:
             st.warning("⚠️ El archivo subido no contiene la columna '#WIP'. Se subirán los datos sin validar duplicados.")
-        # ---------------------------------------------
 
         df_nuevo = df_nuevo.fillna("") 
         df_nuevo = df_nuevo.astype(str)
@@ -277,13 +286,39 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     paleta_datos = ['#1D3557', '#457B9D', '#A8DADC', '#E30613', '#F4A261', '#2A9D8F', '#E9C46A']
 
     # ==========================================
-    # CÁLCULO GLOBAL DE DÍAS HÁBILES
+    # CÁLCULO GLOBAL DE DÍAS HÁBILES (NUEVA LÓGICA PARAMETRIZADA)
     # ==========================================
     dias_habiles = 1
     if not df_filtrado.empty and 'FECHA DE CREACION' in df_filtrado.columns:
-        fecha_min, fecha_max = df_filtrado['FECHA DE CREACION'].min().date(), df_filtrado['FECHA DE CREACION'].max().date()
-        dias_habiles = np.busday_count(fecha_min, fecha_max + timedelta(days=1), weekmask='1111110')
-        if dias_habiles == 0: dias_habiles = 1
+        try:
+            # Obtener festivos de Colombia para los años filtrados
+            anos_unicos = df_filtrado['FECHA DE CREACION'].dt.year.unique().tolist()
+            festivos_co = holidays.CO(years=anos_unicos)
+            lista_festivos = list(festivos_co.keys())
+            
+            if mes_sel:
+                # Si filtran por mes, calculamos los días de todos los meses seleccionados en su totalidad
+                fechas_periodos = df_filtrado['FECHA DE CREACION'].dt.to_period('M').unique()
+                total_dias = 0
+                for periodo in fechas_periodos:
+                    inicio_mes = periodo.start_time.date()
+                    fin_mes = periodo.end_time.date()
+                    # weekmask '1111110' cuenta Lunes a Sábado. Los festivos se restan automáticamente.
+                    total_dias += np.busday_count(inicio_mes, fin_mes + timedelta(days=1), weekmask='1111110', holidays=lista_festivos)
+                dias_habiles = total_dias
+            else:
+                # Si no hay meses filtrados, tomamos el rango de fechas existente
+                fecha_min = df_filtrado['FECHA DE CREACION'].min().date()
+                fecha_max = df_filtrado['FECHA DE CREACION'].max().date()
+                dias_habiles = np.busday_count(fecha_min, fecha_max + timedelta(days=1), weekmask='1111110', holidays=lista_festivos)
+                
+            if dias_habiles <= 0: dias_habiles = 1
+        except Exception as e:
+            # Respaldo en caso de que holidays falle
+            fecha_min = df_filtrado['FECHA DE CREACION'].min().date()
+            fecha_max = df_filtrado['FECHA DE CREACION'].max().date()
+            dias_habiles = np.busday_count(fecha_min, fecha_max + timedelta(days=1), weekmask='1111110')
+            if dias_habiles == 0: dias_habiles = 1
 
     # ==========================================
     # VISTA 1: TABLERO GENERAL
@@ -312,7 +347,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
         with col_graficos:
             st.markdown("<b>Solicitudes por Fecha y Ciudad</b>", unsafe_allow_html=True)
             res_mes_ciudad = df_filtrado.groupby(['MES_NUM', 'MES_NOMBRE', 'CIUDAD_REAL'])['CANTIDAD_DESTINOS'].sum().reset_index(name='Total')
-            # MODIFICACIÓN: Crear etiqueta combinada
             res_mes_ciudad['Etiqueta'] = res_mes_ciudad['CIUDAD_REAL'] + ' - ' + res_mes_ciudad['Total'].astype(str)
             fig_combo = px.bar(res_mes_ciudad.sort_values('MES_NUM'), x='MES_NOMBRE', y='Total', color='CIUDAD_REAL', barmode='group', text='Etiqueta', color_discrete_sequence=paleta_datos)
             fig_combo.update_traces(textposition='outside')
@@ -335,7 +369,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             with col_t2:
                 st.markdown("<b>Evolución del Tiempo Promedio (Horas) por Sede</b>", unsafe_allow_html=True)
                 tendencia = df_filtrado.groupby(['MES_NUM', 'MES_NOMBRE', 'CIUDAD_REAL'])['TIEMPO_HORAS'].mean().reset_index()
-                # MODIFICACIÓN: Crear etiqueta combinada para la línea
                 tendencia['Etiqueta'] = tendencia['CIUDAD_REAL'] + ' (' + tendencia['TIEMPO_HORAS'].round(1).astype(str) + 'h)'
                 fig_tend = px.line(tendencia.sort_values('MES_NUM'), x='MES_NOMBRE', y='TIEMPO_HORAS', color='CIUDAD_REAL', markers=True, text='Etiqueta', color_discrete_sequence=paleta_datos)
                 fig_tend.update_traces(textposition='top center')
@@ -369,7 +402,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             
         st.markdown("<b>Distribución Absoluta de Servicios por Sede</b>", unsafe_allow_html=True)
         res_un = df_filtrado.groupby('CIUDAD_REAL')['CANTIDAD_DESTINOS'].sum().reset_index(name='Solicitudes').sort_values(by='Solicitudes', ascending=False)
-        # MODIFICACIÓN: Agregar etiqueta combinada
         res_un['Etiqueta'] = res_un['CIUDAD_REAL'] + ' - ' + res_un['Solicitudes'].astype(str)
         fig_un = px.bar(res_un, x='CIUDAD_REAL', y='Solicitudes', color='CIUDAD_REAL', color_discrete_sequence=paleta_datos, text='Etiqueta')
         fig_un.update_traces(textposition='outside')
@@ -386,7 +418,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             st.markdown("<b>Participación Porcentual por Sede</b>", unsafe_allow_html=True)
             res_part_un = df_filtrado.groupby('CIUDAD_REAL')['CANTIDAD_DESTINOS'].sum().reset_index().rename(columns={'CANTIDAD_DESTINOS': 'Total'})
             fig_part_un = px.pie(res_part_un, values='Total', names='CIUDAD_REAL', hole=0.4, color_discrete_sequence=paleta_datos)
-            # MODIFICACIÓN: Mostrar texto (Ciudad) y porcentaje dentro del pie
             fig_part_un.update_traces(textposition='inside', textinfo='percent+label') 
             st.plotly_chart(fig_part_un, use_container_width=True)
             
@@ -435,6 +466,8 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             st.markdown("<b>► Consolidado General por Colaborador</b>", unsafe_allow_html=True)
             
             num_mensajeros = len(res_mensajero)
+            
+            # --- NUEVA LÓGICA DE DÍAS HÁBILES EN EL CÁLCULO FINAL ---
             res_mensajero['Promedio Vueltas/Día'] = (res_mensajero['Total_Vueltas'] / dias_habiles).round(1)
             res_mensajero['Tiempo_Promedio_Hrs'] = res_mensajero['Tiempo_Promedio_Hrs'].round(2)
             

@@ -304,7 +304,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             with col_t1:
                 st.markdown("<b>Horas Invertidas por Tipo de Gestión</b>", unsafe_allow_html=True)
                 res_tiempo = df_filtrado.groupby('TRAMITE')['TIEMPO_HORAS'].sum().reset_index().sort_values(by='TIEMPO_HORAS', ascending=True).tail(10)
-                # Color sólido aplicado aquí
                 fig_tramite = px.bar(res_tiempo, x='TIEMPO_HORAS', y='TRAMITE', orientation='h', text=res_tiempo['TIEMPO_HORAS'].apply(lambda x: f"{x:.0f} h"))
                 fig_tramite.update_traces(marker_color='#457B9D', textposition='outside')
                 st.plotly_chart(fig_tramite, use_container_width=True)
@@ -327,10 +326,19 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
         pivot_df = pivot_df[meses_orden]
         
         pivot_df['Total General'] = pivot_df.sum(axis=1)
-        pivot_df.loc['TOTAL GENERAL'] = pivot_df.sum(axis=0)
+        totales_mes = pivot_df.sum(axis=0) # Extraemos el total sin agregarlo al DataFrame para evitar ordenamientos erróneos
         
         pivot_df = pivot_df.reset_index().rename(columns={'CIUDAD_REAL': 'SEDE / MES'})
+        
+        # 1. Mostrar la tabla de datos limpios
         st.dataframe(pivot_df, use_container_width=True, hide_index=True)
+        
+        # 2. Panel inamovible anclado al pie de la tabla
+        st.markdown(f"""
+        <div style='background-color: #1D3557; color: white; padding: 12px; border-radius: 0px 0px 8px 8px; font-weight: bold; margin-top: -16px; text-align: right;'>
+            📌 TOTAL GENERAL DE SOLICITUDES: {int(totales_mes['Total General'])}
+        </div>
+        """, unsafe_allow_html=True)
             
         st.markdown("<hr>", unsafe_allow_html=True)
             
@@ -357,7 +365,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             st.markdown("<b>Participación por Trámite (Top 15)</b>", unsafe_allow_html=True)
             if 'TRAMITE' in df_filtrado.columns:
                 res_part_tr = df_filtrado.groupby('TRAMITE')['CANTIDAD_DESTINOS'].sum().reset_index(name='Total').sort_values('Total', ascending=False).head(15).sort_values('Total', ascending=True)
-                # Color sólido aplicado aquí
                 fig_part_bar = px.bar(res_part_tr, x='Total', y='TRAMITE', orientation='h', text='Total')
                 fig_part_bar.update_traces(marker_color='#2A9D8F', textposition='outside')
                 st.plotly_chart(fig_part_bar, use_container_width=True)
@@ -380,7 +387,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             res_mensajero = res_mensajero[res_mensajero[col_mensajero].str.strip() != ""]
             
             st.markdown("<br><b>► Índice de Productividad (Volumen de Vueltas)</b>", unsafe_allow_html=True)
-            # Color sólido aplicado aquí
             fig_prod = px.bar(res_mensajero.head(15).sort_values('Total_Vueltas', ascending=True), 
                               x='Total_Vueltas', y=col_mensajero, orientation='h', text='Total_Vueltas')
             fig_prod.update_traces(marker_color='#1D3557', textposition='outside')
@@ -391,7 +397,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             st.markdown("<b>► Control de Eficiencia (Mayor Tiempo Promedio)</b>", unsafe_allow_html=True)
             
             res_demoras = res_mensajero.sort_values('Tiempo_Promedio_Hrs', ascending=False).head(15).sort_values('Tiempo_Promedio_Hrs', ascending=True)
-            # Color sólido aplicado aquí
             fig_ef = px.bar(res_demoras, x='Tiempo_Promedio_Hrs', y=col_mensajero, orientation='h', 
                             text=res_demoras['Tiempo_Promedio_Hrs'].apply(lambda x: f"{x:.1f} h"))
             fig_ef.update_traces(marker_color='#E30613', textposition='outside')
@@ -411,9 +416,18 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
                 tiempo_mean = res_mensajero['Tiempo Promedio (Horas)'].mean()
                 promedio_total = total_v_sum / dias_habiles / num_mensajeros if num_mensajeros > 0 else 0
                 
-                res_mensajero.loc[num_mensajeros] = ['TOTAL GENERAL', total_v_sum, round(tiempo_mean, 2), round(promedio_total, 1)]
-            
-            st.dataframe(res_mensajero, use_container_width=True, hide_index=True)
+                # 1. Mostrar la tabla sin la fila añadida internamente
+                st.dataframe(res_mensajero, use_container_width=True, hide_index=True)
+                
+                # 2. Panel inamovible que simula el pie de la tabla, imposible de desordenar
+                st.markdown(f"""
+                <div style="display: flex; background-color: #1D3557; color: white; padding: 12px 15px; border-radius: 0px 0px 8px 8px; font-weight: bold; margin-top: -16px; font-size: 14px;">
+                    <div style="flex: 1; text-align: left;">📌 TOTAL GENERAL</div>
+                    <div style="flex: 1; text-align: right;">{total_v_sum}</div>
+                    <div style="flex: 1; text-align: right;">{round(tiempo_mean, 2)}</div>
+                    <div style="flex: 1; text-align: right;">{round(promedio_total, 1)}</div>
+                </div>
+                """, unsafe_allow_html=True)
             
         else:
             st.warning("No se encontró la columna de Colaborador en la base de datos para generar este reporte.")

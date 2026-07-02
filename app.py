@@ -10,7 +10,7 @@ import base64
 import requests
 import json
 import time
-import holidays
+import holidays  # <-- LIBRERÍA PARA FESTIVOS
 
 # 1. CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(
@@ -286,35 +286,30 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     paleta_datos = ['#1D3557', '#457B9D', '#A8DADC', '#E30613', '#F4A261', '#2A9D8F', '#E9C46A']
 
     # ==========================================
-    # CÁLCULO GLOBAL DE DÍAS HÁBILES (NUEVA LÓGICA PARAMETRIZADA)
+    # CÁLCULO GLOBAL DE DÍAS HÁBILES
     # ==========================================
     dias_habiles = 1
     if not df_filtrado.empty and 'FECHA DE CREACION' in df_filtrado.columns:
         try:
-            # Obtener festivos de Colombia para los años filtrados
             anos_unicos = df_filtrado['FECHA DE CREACION'].dt.year.unique().tolist()
             festivos_co = holidays.CO(years=anos_unicos)
             lista_festivos = list(festivos_co.keys())
             
             if mes_sel:
-                # Si filtran por mes, calculamos los días de todos los meses seleccionados en su totalidad
                 fechas_periodos = df_filtrado['FECHA DE CREACION'].dt.to_period('M').unique()
                 total_dias = 0
                 for periodo in fechas_periodos:
                     inicio_mes = periodo.start_time.date()
                     fin_mes = periodo.end_time.date()
-                    # weekmask '1111110' cuenta Lunes a Sábado. Los festivos se restan automáticamente.
                     total_dias += np.busday_count(inicio_mes, fin_mes + timedelta(days=1), weekmask='1111110', holidays=lista_festivos)
                 dias_habiles = total_dias
             else:
-                # Si no hay meses filtrados, tomamos el rango de fechas existente
                 fecha_min = df_filtrado['FECHA DE CREACION'].min().date()
                 fecha_max = df_filtrado['FECHA DE CREACION'].max().date()
                 dias_habiles = np.busday_count(fecha_min, fecha_max + timedelta(days=1), weekmask='1111110', holidays=lista_festivos)
                 
             if dias_habiles <= 0: dias_habiles = 1
         except Exception as e:
-            # Respaldo en caso de que holidays falle
             fecha_min = df_filtrado['FECHA DE CREACION'].min().date()
             fecha_max = df_filtrado['FECHA DE CREACION'].max().date()
             dias_habiles = np.busday_count(fecha_min, fecha_max + timedelta(days=1), weekmask='1111110')
@@ -333,7 +328,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
         promedio_diario = total_solicitudes / dias_habiles / mensajeros_activos
         
         eficacia = 0
-        fallidos_df = pd.DataFrame() # Inicializamos la variable para usarla en el desglose
+        fallidos_df = pd.DataFrame() 
         
         if 'ESTADO' in df_filtrado.columns and total_solicitudes > 0:
             fallidos_df = df_filtrado[df_filtrado['ESTADO'].str.contains('Fallido', case=False, na=False)]
@@ -354,14 +349,46 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             fig_combo.update_traces(textposition='outside')
             st.plotly_chart(fig_combo, use_container_width=True)
 
-        # --- SECCIÓN: DESGLOSE DE AFECTACIÓN DE EFECTIVIDAD ---
+        # --- NUEVA SECCIÓN AMPLIADA: DESGLOSE DE AFECTACIÓN DE EFECTIVIDAD ---
         if 'ESTADO' in df_filtrado.columns:
             st.markdown("<br>", unsafe_allow_html=True)
             if not fallidos_df.empty:
-                with st.expander("🔍 Ver detalle de servicios que afectaron la Efectividad (Fallidos)"):
-                    st.markdown("<p style='color: #64748B;'>A continuación se listan los servicios marcados como 'Fallido' para analizar la causa raíz.</p>", unsafe_allow_html=True)
+                with st.expander("🔍 Ver detalle y análisis de servicios que afectaron la Efectividad (Fallidos)"):
+                    st.markdown("<p style='color: #64748B;'>Análisis de causa raíz: Distribución de fallos por Ciudad, Trámite y Colaborador.</p>", unsafe_allow_html=True)
                     
                     col_mensajero = next((col for col in ['COLABORADOR', 'MENSAJERO', 'RESPONSABLE', 'USUARIO'] if col in df_filtrado.columns), None)
+                    
+                    # 1. Gráficas por Ciudad y Trámite
+                    col_f_graf1, col_f_graf2 = st.columns(2)
+                    
+                    with col_f_graf1:
+                        st.markdown("<b>Distribución de Fallos por Ciudad</b>", unsafe_allow_html=True)
+                        fallos_ciudad = fallidos_df.groupby('CIUDAD_REAL')['CANTIDAD_DESTINOS'].sum().reset_index(name='Total')
+                        fig_fc = px.pie(fallos_ciudad, values='Total', names='CIUDAD_REAL', hole=0.4, color_discrete_sequence=paleta_datos)
+                        fig_fc.update_traces(textposition='inside', textinfo='percent+label') 
+                        st.plotly_chart(fig_fc, use_container_width=True)
+                    
+                    with col_f_graf2:
+                        if 'TRAMITE' in fallidos_df.columns:
+                            st.markdown("<b>Top Trámites con Fallos</b>", unsafe_allow_html=True)
+                            fallos_tramite = fallidos_df.groupby('TRAMITE')['CANTIDAD_DESTINOS'].sum().reset_index(name='Total').sort_values('Total', ascending=True).tail(10)
+                            # Usamos un color de la paleta (rojo) para denotar que es una métrica de fallo
+                            fig_ft = px.bar(fallos_tramite, x='Total', y='TRAMITE', orientation='h', text='Total')
+                            fig_ft.update_traces(marker_color='#E30613', textposition='outside')
+                            st.plotly_chart(fig_ft, use_container_width=True)
+
+                    # 2. Tabla consolidada por Mensajero, Ciudad y Trámite
+                    if col_mensajero:
+                        st.markdown(f"<br><b>Consolidado de Fallos por {col_mensajero.title()}</b>", unsafe_allow_html=True)
+                        columnas_agrupacion = [col_mensajero, 'CIUDAD_REAL']
+                        if 'TRAMITE' in fallidos_df.columns:
+                            columnas_agrupacion.append('TRAMITE')
+                            
+                        res_mensajero_fallos = fallidos_df.groupby(columnas_agrupacion)['CANTIDAD_DESTINOS'].sum().reset_index(name='Total Vueltas Fallidas').sort_values('Total Vueltas Fallidas', ascending=False)
+                        st.dataframe(res_mensajero_fallos, use_container_width=True, hide_index=True)
+
+                    st.markdown("<hr style='opacity: 0.2;'>", unsafe_allow_html=True)
+                    st.markdown("<b>Detalle Registro a Registro (Solicitudes Fallidas)</b>", unsafe_allow_html=True)
                     
                     columnas_deseadas = ['FECHA DE CREACION', 'CIUDAD_REAL', col_mensajero, 'TRAMITE', 'ESTADO', 'CANTIDAD_DESTINOS', 'OBSERVACIONES']
                     columnas_a_mostrar = [col for col in columnas_deseadas if col and col in fallidos_df.columns]

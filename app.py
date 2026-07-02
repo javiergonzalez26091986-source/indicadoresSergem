@@ -73,7 +73,6 @@ def extraer_ciudad(texto):
 # ==========================================
 # 4. PROCESAMIENTO EN CACHÉ (OPTIMIZADO)
 # ==========================================
-# Se aumentó el TTL a 3600 (1 hora) para evitar que la app se recargue durante la presentación
 @st.cache_data(ttl=3600, show_spinner=False)
 def obtener_y_procesar_datos():
     try:
@@ -107,7 +106,6 @@ def obtener_y_procesar_datos():
 
                 if 'TIPO DE SERVICIO' in df.columns:
                     df['CIUDAD_REAL'] = df['TIPO DE SERVICIO'].apply(extraer_ciudad)
-                    # Vectorizado para máxima velocidad de carga
                     df['CANTIDAD_DESTINOS'] = df['TIPO DE SERVICIO'].astype(str).str.extract(r'(\d+)')[0].fillna(1).astype(int)
                 elif 'UNIDAD DE NEGOCIO' in df.columns:
                     df['CIUDAD_REAL'] = df['UNIDAD DE NEGOCIO'].apply(extraer_ciudad)
@@ -222,7 +220,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     
     col_f0, col_f1, col_sem, col_f2, col_f3, col_f4 = st.columns(6)
     
-    # Filtros en Cascada
     with col_f0: 
         ano_sel = st.multiselect("Año", sorted(df['AÑO'].dropna().unique()), default=sorted(df['AÑO'].dropna().unique()))
     
@@ -247,7 +244,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     with col_f4: 
         tramite_sel = st.multiselect("Trámite", sorted(df['TRAMITE'].dropna().unique()) if 'TRAMITE' in df.columns else [], placeholder="Todos")
 
-    # Aplicación de los filtros seleccionados al DataFrame final
     df_filtrado = df.copy()
     if ano_sel: df_filtrado = df_filtrado[df_filtrado['AÑO'].isin(ano_sel)]
     if mes_sel: df_filtrado = df_filtrado[df_filtrado['MES_NOMBRE'].isin(mes_sel)]
@@ -268,7 +264,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
         if dias_habiles == 0: dias_habiles = 1
 
     # ==========================================
-    # VISTA 1: TABLERO GENERAL (INDICADORES)
+    # VISTA 1: TABLERO GENERAL
     # ==========================================
     if st.session_state['pagina_actual'] == 'Tablero':
         total_solicitudes = int(df_filtrado['CANTIDAD_DESTINOS'].sum()) if 'CANTIDAD_DESTINOS' in df_filtrado.columns else len(df_filtrado)
@@ -308,7 +304,9 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             with col_t1:
                 st.markdown("<b>Horas Invertidas por Tipo de Gestión</b>", unsafe_allow_html=True)
                 res_tiempo = df_filtrado.groupby('TRAMITE')['TIEMPO_HORAS'].sum().reset_index().sort_values(by='TIEMPO_HORAS', ascending=True).tail(10)
-                fig_tramite = px.bar(res_tiempo, x='TIEMPO_HORAS', y='TRAMITE', orientation='h', text=res_tiempo['TIEMPO_HORAS'].apply(lambda x: f"{x:.0f} h"), color='TIEMPO_HORAS', color_continuous_scale='Blues')
+                # Color sólido aplicado aquí
+                fig_tramite = px.bar(res_tiempo, x='TIEMPO_HORAS', y='TRAMITE', orientation='h', text=res_tiempo['TIEMPO_HORAS'].apply(lambda x: f"{x:.0f} h"))
+                fig_tramite.update_traces(marker_color='#457B9D', textposition='outside')
                 st.plotly_chart(fig_tramite, use_container_width=True)
             
             with col_t2:
@@ -359,8 +357,9 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             st.markdown("<b>Participación por Trámite (Top 15)</b>", unsafe_allow_html=True)
             if 'TRAMITE' in df_filtrado.columns:
                 res_part_tr = df_filtrado.groupby('TRAMITE')['CANTIDAD_DESTINOS'].sum().reset_index(name='Total').sort_values('Total', ascending=False).head(15).sort_values('Total', ascending=True)
-                fig_part_bar = px.bar(res_part_tr, x='Total', y='TRAMITE', orientation='h', text='Total', color='Total', color_continuous_scale='Blues')
-                fig_part_bar.update_traces(textposition='outside')
+                # Color sólido aplicado aquí
+                fig_part_bar = px.bar(res_part_tr, x='Total', y='TRAMITE', orientation='h', text='Total')
+                fig_part_bar.update_traces(marker_color='#2A9D8F', textposition='outside')
                 st.plotly_chart(fig_part_bar, use_container_width=True)
 
     # ==========================================
@@ -381,10 +380,10 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             res_mensajero = res_mensajero[res_mensajero[col_mensajero].str.strip() != ""]
             
             st.markdown("<br><b>► Índice de Productividad (Volumen de Vueltas)</b>", unsafe_allow_html=True)
+            # Color sólido aplicado aquí
             fig_prod = px.bar(res_mensajero.head(15).sort_values('Total_Vueltas', ascending=True), 
-                              x='Total_Vueltas', y=col_mensajero, orientation='h', 
-                              text='Total_Vueltas', color='Total_Vueltas', color_continuous_scale='Greens')
-            fig_prod.update_traces(textposition='outside')
+                              x='Total_Vueltas', y=col_mensajero, orientation='h', text='Total_Vueltas')
+            fig_prod.update_traces(marker_color='#1D3557', textposition='outside')
             st.plotly_chart(fig_prod, use_container_width=True)
             
             st.markdown("<hr style='opacity: 0.2;'>", unsafe_allow_html=True)
@@ -392,16 +391,15 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             st.markdown("<b>► Control de Eficiencia (Mayor Tiempo Promedio)</b>", unsafe_allow_html=True)
             
             res_demoras = res_mensajero.sort_values('Tiempo_Promedio_Hrs', ascending=False).head(15).sort_values('Tiempo_Promedio_Hrs', ascending=True)
+            # Color sólido aplicado aquí
             fig_ef = px.bar(res_demoras, x='Tiempo_Promedio_Hrs', y=col_mensajero, orientation='h', 
-                            text=res_demoras['Tiempo_Promedio_Hrs'].apply(lambda x: f"{x:.1f} h"), 
-                            color='Tiempo_Promedio_Hrs', color_continuous_scale='Reds')
-            fig_ef.update_traces(textposition='outside')
+                            text=res_demoras['Tiempo_Promedio_Hrs'].apply(lambda x: f"{x:.1f} h"))
+            fig_ef.update_traces(marker_color='#E30613', textposition='outside')
             st.plotly_chart(fig_ef, use_container_width=True)
             
             st.markdown("<hr style='opacity: 0.2;'>", unsafe_allow_html=True)
             st.markdown("<b>► Consolidado General por Colaborador</b>", unsafe_allow_html=True)
             
-            # Incorporación de la nueva métrica de Vueltas Diarias
             num_mensajeros = len(res_mensajero)
             res_mensajero['Promedio Vueltas/Día'] = (res_mensajero['Total_Vueltas'] / dias_habiles).round(1)
             res_mensajero['Tiempo_Promedio_Hrs'] = res_mensajero['Tiempo_Promedio_Hrs'].round(2)

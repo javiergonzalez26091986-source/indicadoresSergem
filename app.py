@@ -241,6 +241,8 @@ if st.session_state['pagina_actual'] == 'Inicio':
             st.button("► Cuotas de Participación", on_click=cambiar_pagina, args=('Participacion',))
             st.markdown("<div style='margin-bottom: 14px;'></div>", unsafe_allow_html=True)
             st.button("► Análisis de Colaboradores", on_click=cambiar_pagina, args=('Mensajeros',))
+            st.markdown("<div style='margin-bottom: 14px;'></div>", unsafe_allow_html=True)
+            st.button("► Estado y Comportamiento", on_click=cambiar_pagina, args=('Comportamiento',))
 
 elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     st.button("◄ Volver al Menú Principal", on_click=cambiar_pagina, args=('Inicio',))
@@ -406,22 +408,39 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     # ==========================================
     elif st.session_state['pagina_actual'] == 'Tiempo':
         st.title("■ Análisis Gerencial de Tiempos Operativos")
-        if 'TIEMPO_HORAS' in df_filtrado.columns and 'TRAMITE' in df_filtrado.columns:
+        
+        # Filtramos registros con tiempo "cero" para que el promedio refleje la realidad
+        df_tiempos_validos = df_filtrado[df_filtrado['TIEMPO_HORAS'] > 0]
+        
+        if 'TIEMPO_HORAS' in df_tiempos_validos.columns and 'TRAMITE' in df_tiempos_validos.columns:
             col_t1, col_t2 = st.columns(2)
             with col_t1:
-                st.markdown("<b>Horas Invertidas por Tipo de Gestión</b>", unsafe_allow_html=True)
-                res_tiempo = df_filtrado.groupby('TRAMITE')['TIEMPO_HORAS'].sum().reset_index().sort_values(by='TIEMPO_HORAS', ascending=True).tail(10)
-                fig_tramite = px.bar(res_tiempo, x='TIEMPO_HORAS', y='TRAMITE', orientation='h', text=res_tiempo['TIEMPO_HORAS'].apply(lambda x: f"{x:.0f} h"))
+                st.markdown("<b>Tiempo Promedio por Trámite (Horas/Vuelta)</b>", unsafe_allow_html=True)
+                
+                # FÓRMULA SOLICITADA: Total Horas / Total Vueltas (Destinos)
+                res_tiempo = df_tiempos_validos.groupby('TRAMITE').agg(
+                    Suma_Tiempos=('TIEMPO_HORAS', 'sum'),
+                    Suma_Vueltas=('CANTIDAD_DESTINOS', 'sum')
+                ).reset_index()
+                
+                res_tiempo['Suma_Vueltas'] = res_tiempo['Suma_Vueltas'].replace(0, 1) # Para evitar división por cero
+                res_tiempo['TIEMPO_PROMEDIO'] = res_tiempo['Suma_Tiempos'] / res_tiempo['Suma_Vueltas']
+                
+                res_tiempo = res_tiempo.sort_values(by='TIEMPO_PROMEDIO', ascending=True).tail(10)
+                
+                fig_tramite = px.bar(res_tiempo, x='TIEMPO_PROMEDIO', y='TRAMITE', orientation='h', text=res_tiempo['TIEMPO_PROMEDIO'].apply(lambda x: f"{x:.2f} h"))
                 fig_tramite.update_traces(marker_color='#457B9D', textposition='outside')
                 st.plotly_chart(fig_tramite, use_container_width=True)
             
             with col_t2:
                 st.markdown("<b>Evolución del Tiempo Promedio (Horas) por Sede</b>", unsafe_allow_html=True)
-                tendencia = df_filtrado.groupby(['MES_NUM', 'MES_NOMBRE', 'CIUDAD_REAL'])['TIEMPO_HORAS'].mean().reset_index()
+                tendencia = df_tiempos_validos.groupby(['MES_NUM', 'MES_NOMBRE', 'CIUDAD_REAL'])['TIEMPO_HORAS'].mean().reset_index()
                 tendencia['Etiqueta'] = tendencia['CIUDAD_REAL'] + ' (' + tendencia['TIEMPO_HORAS'].round(1).astype(str) + 'h)'
                 fig_tend = px.line(tendencia.sort_values('MES_NUM'), x='MES_NOMBRE', y='TIEMPO_HORAS', color='CIUDAD_REAL', markers=True, text='Etiqueta', color_discrete_sequence=paleta_datos)
                 fig_tend.update_traces(textposition='top center')
                 st.plotly_chart(fig_tend, use_container_width=True)
+        else:
+            st.warning("No hay suficientes datos con tiempos registrados para generar este análisis.")
 
     # ==========================================
     # VISTA 3: SOLICITUDES
@@ -516,7 +535,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             
             num_mensajeros = len(res_mensajero)
             
-            # --- LÓGICA DE DÍAS HÁBILES EN EL CÁLCULO FINAL ---
             res_mensajero['Promedio Vueltas/Día'] = (res_mensajero['Total_Vueltas'] / dias_habiles).round(1)
             res_mensajero['Tiempo_Promedio_Hrs'] = res_mensajero['Tiempo_Promedio_Hrs'].round(2)
             
@@ -540,3 +558,58 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             
         else:
             st.warning("No se encontró la columna de Colaborador en la base de datos para generar este reporte.")
+
+    # ==========================================
+    # VISTA 6: ESTADO Y COMPORTAMIENTO
+    # ==========================================
+    elif st.session_state['pagina_actual'] == 'Comportamiento':
+        st.title("■ Seguimiento de Estados y Alertas")
+        st.markdown("<p style='color: #64748B;'>Monitoreo en tiempo real del estado de las solicitudes por mensajero para identificar cuellos de botella y medir su disciplina con la aplicación.</p>", unsafe_allow_html=True)
+        
+        col_mensajero = next((col for col in ['COLABORADOR', 'MENSAJERO', 'RESPONSABLE', 'USUARIO'] if col in df_filtrado.columns), None)
+        
+        if col_mensajero and 'ESTADO' in df_filtrado.columns:
+            def categorizar_estado(estado):
+                e = str(estado).lower()
+                if 'finalizado' in e: return '✅ Finalizadas'
+                elif 'camino' in e or 'servicio' in e: return '⏳ En Trámite (Inicio/Llegada)'
+                elif 'aceptado' in e: return '⚠️ Aceptadas (Sin Iniciar)'
+                elif 'pendiente' in e or 'esperando' in e: return '🕒 Pendientes / Sin Asignar'
+                else: return '❌ Fallidas / Canceladas'
+                
+            df_comportamiento = df_filtrado.copy()
+            df_comportamiento['ESTADO_AGRUPADO'] = df_comportamiento['ESTADO'].apply(categorizar_estado)
+            
+            res_comp = pd.crosstab(df_comportamiento[col_mensajero], df_comportamiento['ESTADO_AGRUPADO'])
+            
+            cols_requeridas = ['✅ Finalizadas', '⏳ En Trámite (Inicio/Llegada)', '⚠️ Aceptadas (Sin Iniciar)', '🕒 Pendientes / Sin Asignar', '❌ Fallidas / Canceladas']
+            for c in cols_requeridas:
+                if c not in res_comp.columns:
+                    res_comp[c] = 0
+                    
+            res_comp = res_comp[cols_requeridas]
+            res_comp['Total Asignadas'] = res_comp.sum(axis=1)
+            
+            # Ordenar primero a quienes tienen más tareas aceptadas sin iniciar (como alerta)
+            res_comp = res_comp.sort_values(by=['⚠️ Aceptadas (Sin Iniciar)', '⏳ En Trámite (Inicio/Llegada)'], ascending=False).reset_index()
+            res_comp = res_comp[res_comp[col_mensajero].str.strip() != ""]
+            
+            st.markdown("<b>► Matriz de Comportamiento por Colaborador</b>", unsafe_allow_html=True)
+            st.dataframe(res_comp, use_container_width=True, hide_index=True)
+            
+            st.markdown("<hr style='opacity: 0.2;'>", unsafe_allow_html=True)
+            
+            st.markdown("<b>► Alerta de Represamiento (Solicitudes en Curso o Estancadas)</b>", unsafe_allow_html=True)
+            
+            res_alertas = res_comp[[col_mensajero, '⚠️ Aceptadas (Sin Iniciar)', '⏳ En Trámite (Inicio/Llegada)', '🕒 Pendientes / Sin Asignar']].copy()
+            res_alertas_melt = pd.melt(res_alertas, id_vars=[col_mensajero], var_name='Estado', value_name='Cantidad')
+            res_alertas_melt = res_alertas_melt[res_alertas_melt['Cantidad'] > 0]
+            
+            if not res_alertas_melt.empty:
+                fig_alertas = px.bar(res_alertas_melt, x='Cantidad', y=col_mensajero, color='Estado', orientation='h', 
+                                    color_discrete_sequence=['#E9C46A', '#457B9D', '#F4A261'])
+                st.plotly_chart(fig_alertas, use_container_width=True)
+            else:
+                st.success("🎉 ¡Excelente! No hay tareas estancadas o represadas en este momento.")
+        else:
+            st.warning("No se encontró la columna de ESTADO o COLABORADOR para procesar esta vista.")

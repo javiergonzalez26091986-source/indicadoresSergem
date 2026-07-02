@@ -312,7 +312,9 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
         with col_graficos:
             st.markdown("<b>Solicitudes por Fecha y Ciudad</b>", unsafe_allow_html=True)
             res_mes_ciudad = df_filtrado.groupby(['MES_NUM', 'MES_NOMBRE', 'CIUDAD_REAL'])['CANTIDAD_DESTINOS'].sum().reset_index(name='Total')
-            fig_combo = px.bar(res_mes_ciudad.sort_values('MES_NUM'), x='MES_NOMBRE', y='Total', color='CIUDAD_REAL', barmode='group', text='Total', color_discrete_sequence=paleta_datos)
+            # MODIFICACIÓN: Crear etiqueta combinada
+            res_mes_ciudad['Etiqueta'] = res_mes_ciudad['CIUDAD_REAL'] + ' - ' + res_mes_ciudad['Total'].astype(str)
+            fig_combo = px.bar(res_mes_ciudad.sort_values('MES_NUM'), x='MES_NOMBRE', y='Total', color='CIUDAD_REAL', barmode='group', text='Etiqueta', color_discrete_sequence=paleta_datos)
             fig_combo.update_traces(textposition='outside')
             st.plotly_chart(fig_combo, use_container_width=True)
 
@@ -333,7 +335,10 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             with col_t2:
                 st.markdown("<b>Evolución del Tiempo Promedio (Horas) por Sede</b>", unsafe_allow_html=True)
                 tendencia = df_filtrado.groupby(['MES_NUM', 'MES_NOMBRE', 'CIUDAD_REAL'])['TIEMPO_HORAS'].mean().reset_index()
-                fig_tend = px.line(tendencia.sort_values('MES_NUM'), x='MES_NOMBRE', y='TIEMPO_HORAS', color='CIUDAD_REAL', markers=True, color_discrete_sequence=paleta_datos)
+                # MODIFICACIÓN: Crear etiqueta combinada para la línea
+                tendencia['Etiqueta'] = tendencia['CIUDAD_REAL'] + ' (' + tendencia['TIEMPO_HORAS'].round(1).astype(str) + 'h)'
+                fig_tend = px.line(tendencia.sort_values('MES_NUM'), x='MES_NOMBRE', y='TIEMPO_HORAS', color='CIUDAD_REAL', markers=True, text='Etiqueta', color_discrete_sequence=paleta_datos)
+                fig_tend.update_traces(textposition='top center')
                 st.plotly_chart(fig_tend, use_container_width=True)
 
     # ==========================================
@@ -364,7 +369,9 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             
         st.markdown("<b>Distribución Absoluta de Servicios por Sede</b>", unsafe_allow_html=True)
         res_un = df_filtrado.groupby('CIUDAD_REAL')['CANTIDAD_DESTINOS'].sum().reset_index(name='Solicitudes').sort_values(by='Solicitudes', ascending=False)
-        fig_un = px.bar(res_un, x='CIUDAD_REAL', y='Solicitudes', color='CIUDAD_REAL', color_discrete_sequence=paleta_datos, text='Solicitudes')
+        # MODIFICACIÓN: Agregar etiqueta combinada
+        res_un['Etiqueta'] = res_un['CIUDAD_REAL'] + ' - ' + res_un['Solicitudes'].astype(str)
+        fig_un = px.bar(res_un, x='CIUDAD_REAL', y='Solicitudes', color='CIUDAD_REAL', color_discrete_sequence=paleta_datos, text='Etiqueta')
         fig_un.update_traces(textposition='outside')
         fig_un.update_layout(margin=dict(t=30, b=10, l=10, r=10), showlegend=False, plot_bgcolor='white', paper_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig_un, use_container_width=True)
@@ -379,6 +386,8 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             st.markdown("<b>Participación Porcentual por Sede</b>", unsafe_allow_html=True)
             res_part_un = df_filtrado.groupby('CIUDAD_REAL')['CANTIDAD_DESTINOS'].sum().reset_index().rename(columns={'CANTIDAD_DESTINOS': 'Total'})
             fig_part_un = px.pie(res_part_un, values='Total', names='CIUDAD_REAL', hole=0.4, color_discrete_sequence=paleta_datos)
+            # MODIFICACIÓN: Mostrar texto (Ciudad) y porcentaje dentro del pie
+            fig_part_un.update_traces(textposition='inside', textinfo='percent+label') 
             st.plotly_chart(fig_part_un, use_container_width=True)
             
         with col_p2:

@@ -10,7 +10,7 @@ import base64
 import requests
 import json
 import time
-import holidays  # <-- NUEVA LIBRERÍA PARA FESTIVOS
+import holidays
 
 # 1. CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(
@@ -333,6 +333,8 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
         promedio_diario = total_solicitudes / dias_habiles / mensajeros_activos
         
         eficacia = 0
+        fallidos_df = pd.DataFrame() # Inicializamos la variable para usarla en el desglose
+        
         if 'ESTADO' in df_filtrado.columns and total_solicitudes > 0:
             fallidos_df = df_filtrado[df_filtrado['ESTADO'].str.contains('Fallido', case=False, na=False)]
             fallidos = fallidos_df['CANTIDAD_DESTINOS'].sum() if 'CANTIDAD_DESTINOS' in fallidos_df.columns else len(fallidos_df)
@@ -351,6 +353,25 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             fig_combo = px.bar(res_mes_ciudad.sort_values('MES_NUM'), x='MES_NOMBRE', y='Total', color='CIUDAD_REAL', barmode='group', text='Etiqueta', color_discrete_sequence=paleta_datos)
             fig_combo.update_traces(textposition='outside')
             st.plotly_chart(fig_combo, use_container_width=True)
+
+        # --- SECCIÓN: DESGLOSE DE AFECTACIÓN DE EFECTIVIDAD ---
+        if 'ESTADO' in df_filtrado.columns:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if not fallidos_df.empty:
+                with st.expander("🔍 Ver detalle de servicios que afectaron la Efectividad (Fallidos)"):
+                    st.markdown("<p style='color: #64748B;'>A continuación se listan los servicios marcados como 'Fallido' para analizar la causa raíz.</p>", unsafe_allow_html=True)
+                    
+                    col_mensajero = next((col for col in ['COLABORADOR', 'MENSAJERO', 'RESPONSABLE', 'USUARIO'] if col in df_filtrado.columns), None)
+                    
+                    columnas_deseadas = ['FECHA DE CREACION', 'CIUDAD_REAL', col_mensajero, 'TRAMITE', 'ESTADO', 'CANTIDAD_DESTINOS', 'OBSERVACIONES']
+                    columnas_a_mostrar = [col for col in columnas_deseadas if col and col in fallidos_df.columns]
+                    
+                    if columnas_a_mostrar:
+                        st.dataframe(fallidos_df[columnas_a_mostrar].sort_values('FECHA DE CREACION', ascending=False), use_container_width=True, hide_index=True)
+                    else:
+                        st.dataframe(fallidos_df, use_container_width=True, hide_index=True)
+            else:
+                st.success("🎉 ¡Excelente! No hay servicios fallidos en los filtros seleccionados. La efectividad es del 100%.")
 
     # ==========================================
     # VISTA 2: MEDICIÓN DE TIEMPOS
@@ -467,7 +488,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             
             num_mensajeros = len(res_mensajero)
             
-            # --- NUEVA LÓGICA DE DÍAS HÁBILES EN EL CÁLCULO FINAL ---
+            # --- LÓGICA DE DÍAS HÁBILES EN EL CÁLCULO FINAL ---
             res_mensajero['Promedio Vueltas/Día'] = (res_mensajero['Total_Vueltas'] / dias_habiles).round(1)
             res_mensajero['Tiempo_Promedio_Hrs'] = res_mensajero['Tiempo_Promedio_Hrs'].round(2)
             

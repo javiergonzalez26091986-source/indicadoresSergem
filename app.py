@@ -145,13 +145,35 @@ with st.sidebar:
         else: df_nuevo = pd.read_excel(archivo_subido)
         
         df_nuevo.columns = df_nuevo.columns.str.strip().str.upper()
+        
+        # --- NUEVA LÓGICA DE VALIDACIÓN POR #WIP ---
+        if '#WIP' in df_nuevo.columns and not df.empty and '#WIP' in df.columns:
+            wips_existentes = set(df['#WIP'].astype(str).str.strip())
+            df_nuevo['#WIP_TEMP'] = df_nuevo['#WIP'].astype(str).str.strip()
+            
+            registros_originales = len(df_nuevo)
+            df_nuevo = df_nuevo[~df_nuevo['#WIP_TEMP'].isin(wips_existentes)]
+            df_nuevo = df_nuevo.drop(columns=['#WIP_TEMP'])
+            
+            registros_nuevos = len(df_nuevo)
+            registros_omitidos = registros_originales - registros_nuevos
+            
+            if registros_nuevos == 0:
+                st.warning(f"⚠️ Los {registros_originales} registros del archivo ya existen en la base de datos. No hay duplicados que subir.")
+                st.stop()
+            elif registros_omitidos > 0:
+                st.info(f"ℹ️ Se evitaron {registros_omitidos} duplicados. Subiendo únicamente {registros_nuevos} registros nuevos.")
+        elif '#WIP' not in df_nuevo.columns:
+            st.warning("⚠️ El archivo subido no contiene la columna '#WIP'. Se subirán los datos sin validar duplicados.")
+        # ---------------------------------------------
+
         df_nuevo = df_nuevo.fillna("") 
         df_nuevo = df_nuevo.astype(str)
         
         total_filas = len(df_nuevo)
         tamano_lote = 500 
         
-        st.markdown("Sincronizando registros...")
+        st.markdown("Sincronizando registros nuevos...")
         barra_progreso = st.progress(0)
         
         exito = True
@@ -326,14 +348,12 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
         pivot_df = pivot_df[meses_orden]
         
         pivot_df['Total General'] = pivot_df.sum(axis=1)
-        totales_mes = pivot_df.sum(axis=0) # Extraemos el total sin agregarlo al DataFrame para evitar ordenamientos erróneos
+        totales_mes = pivot_df.sum(axis=0)
         
         pivot_df = pivot_df.reset_index().rename(columns={'CIUDAD_REAL': 'SEDE / MES'})
         
-        # 1. Mostrar la tabla de datos limpios
         st.dataframe(pivot_df, use_container_width=True, hide_index=True)
         
-        # 2. Panel inamovible anclado al pie de la tabla
         st.markdown(f"""
         <div style='background-color: #1D3557; color: white; padding: 12px; border-radius: 0px 0px 8px 8px; font-weight: bold; margin-top: -16px; text-align: right;'>
             📌 TOTAL GENERAL DE SOLICITUDES: {int(totales_mes['Total General'])}
@@ -416,10 +436,8 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
                 tiempo_mean = res_mensajero['Tiempo Promedio (Horas)'].mean()
                 promedio_total = total_v_sum / dias_habiles / num_mensajeros if num_mensajeros > 0 else 0
                 
-                # 1. Mostrar la tabla sin la fila añadida internamente
                 st.dataframe(res_mensajero, use_container_width=True, hide_index=True)
                 
-                # 2. Panel inamovible que simula el pie de la tabla, imposible de desordenar
                 st.markdown(f"""
                 <div style="display: flex; background-color: #1D3557; color: white; padding: 12px 15px; border-radius: 0px 0px 8px 8px; font-weight: bold; margin-top: -16px; font-size: 14px;">
                     <div style="flex: 1; text-align: left;">📌 TOTAL GENERAL</div>

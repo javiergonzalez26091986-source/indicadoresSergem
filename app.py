@@ -79,7 +79,7 @@ def extraer_ciudad(texto):
 # ==========================================
 # 4. PROCESAMIENTO EN CACHÉ (OPTIMIZADO Y CON TIMEOUT AMPLIADO)
 # ==========================================
-@st.cache_data(ttl=600, show_spinner="Sincronizando con Google Sheets... Por favor espera ⏳")
+@st.cache_data(ttl=3600, show_spinner="Sincronizando con Google Sheets... Por favor espera ⏳")
 def obtener_y_procesar_datos():
     try:
         # Aumentamos el timeout a 150 segundos (2.5 minutos) para evitar que se corte la conexión

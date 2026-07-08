@@ -20,14 +20,28 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. OCULTAR INTERFAZ POR DEFECTO Y APLICAR ESTILOS
+# 2. OCULTAR INTERFAZ POR DEFECTO Y APLICAR ESTILOS (CORREGIDO)
 st.markdown("""
 <style>
+/* Ocultar menú de opciones y pie de página de Streamlit */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
-div[data-testid="stToolbar"] { visibility: hidden !important; display: none !important; }
+
+/* Ocultar botones de la esquina superior derecha (Deploy, etc.) */
+[data-testid="stToolbar"] { visibility: hidden !important; display: none !important; }
 .stAppDeployButton {display: none !important;}
+
+/* Hacer transparente el contenedor del encabezado para que no estorbe */
 header {background-color: transparent !important;}
+
+/* ¡LA SOLUCIÓN AQUÍ! Forzar que el botón de expandir la barra lateral siempre esté visible y al frente */
+[data-testid="collapsedControl"] {
+    display: flex !important;
+    visibility: visible !important;
+    z-index: 999999 !important;
+}
+
+/* Ajustar el espacio superior */
 .block-container {padding-top: 2rem !important;}
 </style>
 """, unsafe_allow_html=True)

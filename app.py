@@ -10,31 +10,25 @@ import base64
 import requests
 import json
 import time
-import holidays  # <-- LIBRERÍA PARA FESTIVOS
+import holidays
 
-# 1. CONFIGURACIÓN DE LA PÁGINA
+# 1. CONFIGURACIÓN: FUERZA A QUE LA BARRA ESTÉ EXPANDIDA SIEMPRE
 st.set_page_config(
     page_title="Tablero Operativo - Sergem", 
     page_icon="sergemLogo.ico", 
     layout="wide", 
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded" # <-- Aquí garantizamos que inicie abierta
 )
 
-# 2. OCULTAR INTERFAZ POR DEFECTO Y DEJAR BARRA LATERAL FIJA
+# 2. CSS MÍNIMO: Solo ocultamos lo estrictamente necesario
 st.markdown("""
 <style>
-/* Ocultar por completo la barra superior de Streamlit */
-header {display: none !important;}
+/* Ocultar elementos de Streamlit que no necesitamos */
+#MainMenu, footer {visibility: hidden;}
+.stAppDeployButton {display: none !important;}
+[data-testid="stToolbar"] {display: none !important;}
 
-/* Ocultar el menú y el pie de página nativos */
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-
-/* Ocultar el botón que permite colapsar la barra lateral (la deja fija) */
-[data-testid="stSidebarCollapseButton"] {display: none !important;}
-
-/* Ajustar el padding superior para ganar espacio visual */
-.block-container {padding-top: 2rem !important;}
+/* Eliminamos cualquier regla que oculte el header o afecte botones */
 </style>
 """, unsafe_allow_html=True)
 

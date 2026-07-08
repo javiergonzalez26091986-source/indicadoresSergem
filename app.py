@@ -79,7 +79,7 @@ def extraer_ciudad(texto):
 # ==========================================
 # 4. PROCESAMIENTO EN CACHÉ (OPTIMIZADO)
 # ==========================================
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=60, show_spinner=False)
 def obtener_y_procesar_datos():
     try:
         req = requests.get(URL_APPSCRIPT, timeout=60)

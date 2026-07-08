@@ -20,18 +20,18 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. OCULTAR INTERFAZ POR DEFECTO Y APLICAR ESTILOS (SOLUCIÓN DEFINITIVA BARRA LATERAL)
+# 2. OCULTAR INTERFAZ POR DEFECTO Y DEJAR BARRA LATERAL FIJA
 st.markdown("""
 <style>
-/* Ocultar el menú de hamburguesa nativo de Streamlit */
-#MainMenu {visibility: hidden;}
+/* Ocultar por completo la barra superior de Streamlit */
+header {display: none !important;}
 
-/* Ocultar el pie de página de Streamlit */
+/* Ocultar el menú y el pie de página nativos */
+#MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 
-/* Ocultar el botón de Deploy y la barra de herramientas superior, SIN tocar el contenedor padre del header */
-[data-testid="stToolbar"] { visibility: hidden !important; display: none !important; }
-.stAppDeployButton {display: none !important;}
+/* Ocultar el botón que permite colapsar la barra lateral (la deja fija) */
+[data-testid="stSidebarCollapseButton"] {display: none !important;}
 
 /* Ajustar el padding superior para ganar espacio visual */
 .block-container {padding-top: 2rem !important;}

@@ -77,13 +77,13 @@ def extraer_ciudad(texto):
     return 'Otra'
 
 # ==========================================
-# 4. PROCESAMIENTO EN CACHÉ (OPTIMIZADO)
+# 4. PROCESAMIENTO EN CACHÉ (OPTIMIZADO Y CON TIMEOUT AMPLIADO)
 # ==========================================
-# Se ajusta a 600 (10 minutos) para proteger el servidor de Google, el botón manual hará el resto.
-@st.cache_data(ttl=600, show_spinner=False)
+@st.cache_data(ttl=600, show_spinner="Sincronizando con Google Sheets... Por favor espera ⏳")
 def obtener_y_procesar_datos():
     try:
-        req = requests.get(URL_APPSCRIPT, timeout=60)
+        # Aumentamos el timeout a 150 segundos (2.5 minutos) para evitar que se corte la conexión
+        req = requests.get(URL_APPSCRIPT, timeout=150)
         if req.status_code == 200:
             datos = req.json()
             if datos and len(datos) > 0:

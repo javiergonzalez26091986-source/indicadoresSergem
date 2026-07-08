@@ -79,7 +79,8 @@ def extraer_ciudad(texto):
 # ==========================================
 # 4. PROCESAMIENTO EN CACHÉ (OPTIMIZADO)
 # ==========================================
-@st.cache_data(ttl=60, show_spinner=False)
+# Se ajusta a 600 (10 minutos) para proteger el servidor de Google, el botón manual hará el resto.
+@st.cache_data(ttl=600, show_spinner=False)
 def obtener_y_procesar_datos():
     try:
         req = requests.get(URL_APPSCRIPT, timeout=60)
@@ -138,6 +139,14 @@ df = obtener_y_procesar_datos()
 # 5. CONFIGURACIÓN (Panel Lateral)
 # ==========================================
 with st.sidebar:
+    # --- NUEVO BOTÓN DE ACTUALIZACIÓN MANUAL ---
+    st.markdown("### ■ Refrescar Tablero")
+    if st.button("🔄 Descargar datos recientes", use_container_width=True):
+        st.cache_data.clear() # Borra el caché
+        st.rerun() # Recarga la página instantáneamente
+        
+    st.markdown("---")
+    
     st.markdown("### ■ Configuración Operativa")
     mensajeros_config = {
         'Bogota': st.number_input("Bogotá", value=7.0, step=0.5),

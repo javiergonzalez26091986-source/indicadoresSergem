@@ -25,10 +25,9 @@ st.markdown("""
 <style>
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
-[data-testid="stAppHeader"] {display: none !important;}
 div[data-testid="stToolbar"] { visibility: hidden !important; display: none !important; }
 .stAppDeployButton {display: none !important;}
-header {display: none !important;}
+header {background-color: transparent !important;}
 .block-container {padding-top: 2rem !important;}
 </style>
 """, unsafe_allow_html=True)

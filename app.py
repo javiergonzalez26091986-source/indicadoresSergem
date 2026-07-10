@@ -97,6 +97,11 @@ def obtener_y_procesar_datos():
                         df[col_n] = df[col_n].astype(str).str.strip().str.title().apply(lambda x: ' '.join(x.split()))
                         df[col_n] = df[col_n].replace('Nan', '') 
 
+                # --- NUEVA LÓGICA: LIMPIEZA DE CENTRO DE COSTOS ---
+                # Borra los números, guiones y espacios que estén al inicio del texto
+                if 'CENTRO DE COSTOS' in df.columns:
+                    df['CENTRO DE COSTOS'] = df['CENTRO DE COSTOS'].astype(str).str.replace(r'^[\d\-\s]+', '', regex=True).str.strip()
+
                 if 'FECHA DE CREACION' in df.columns:
                     df['FECHA DE CREACION'] = pd.to_datetime(df['FECHA DE CREACION'], dayfirst=True, errors='coerce')
                     df['FECHA DE CREACION'] = df['FECHA DE CREACION'].fillna(pd.Timestamp.now())
@@ -505,6 +510,12 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             
         with col_p2:
             st.markdown("<b>Participación por Trámite (Top 15)</b>", unsafe_allow_html=True)
+            
+            # --- NUEVA LÓGICA: MOSTRAR EL NOMBRE DEL CENTRO DE COSTOS FILTRADO ---
+            if centro_sel:
+                texto_cencos = ", ".join(centro_sel)
+                st.markdown(f"<p style='color: #457B9D; font-weight: 600; font-size: 15px; margin-top: -15px;'>📍 Seleccionado(s): {texto_cencos}</p>", unsafe_allow_html=True)
+            
             if 'TRAMITE' in df_filtrado.columns:
                 res_part_tr = df_filtrado.groupby('TRAMITE')['CANTIDAD_DESTINOS'].sum().reset_index(name='Total').sort_values('Total', ascending=False).head(15).sort_values('Total', ascending=True)
                 fig_part_bar = px.bar(res_part_tr, x='Total', y='TRAMITE', orientation='h', text='Total')

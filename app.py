@@ -77,70 +77,60 @@ def extraer_ciudad(texto):
     return 'Otra'
 
 # ==========================================
-# 4. PROCESAMIENTO EN CACHÉ (OPTIMIZADO CON REINTENTOS)
+# 4. PROCESAMIENTO EN CACHÉ (OPTIMIZADO Y CON TIMEOUT AMPLIADO)
 # ==========================================
 @st.cache_data(ttl=3600, show_spinner="Sincronizando con Google Sheets... Por favor espera ⏳")
 def obtener_y_procesar_datos():
-    max_reintentos = 3
-    for intento in range(max_reintentos):
-        try:
-            req = requests.get(URL_APPSCRIPT, timeout=150)
-            if req.status_code == 200:
-                datos = req.json()
-                if datos and len(datos) > 0:
-                    df = pd.DataFrame(datos)
-                    df.columns = df.columns.str.strip().str.upper()
+    try:
+        # Aumentamos el timeout a 150 segundos (2.5 minutos) para evitar que se corte la conexión
+        req = requests.get(URL_APPSCRIPT, timeout=150)
+        if req.status_code == 200:
+            datos = req.json()
+            if datos and len(datos) > 0:
+                df = pd.DataFrame(datos)
+                df.columns = df.columns.str.strip().str.upper()
+                
+                # --- LÓGICA: NORMALIZAR NOMBRES DE COLABORADORES ---
+                for col_n in ['COLABORADOR', 'MENSAJERO', 'RESPONSABLE', 'USUARIO']:
+                    if col_n in df.columns:
+                        df[col_n] = df[col_n].fillna('')
+                        df[col_n] = df[col_n].astype(str).str.strip().str.title().apply(lambda x: ' '.join(x.split()))
+                        df[col_n] = df[col_n].replace('Nan', '') 
+
+                if 'FECHA DE CREACION' in df.columns:
+                    df['FECHA DE CREACION'] = pd.to_datetime(df['FECHA DE CREACION'], dayfirst=True, errors='coerce')
+                    df['FECHA DE CREACION'] = df['FECHA DE CREACION'].fillna(pd.Timestamp.now())
+                    meses_es = {1:'Enero', 2:'Febrero', 3:'Marzo', 4:'Abril', 5:'Mayo', 6:'Junio', 7:'Julio', 8:'Agosto', 9:'Septiembre', 10:'Octubre', 11:'Noviembre', 12:'Diciembre'}
+                    df['AÑO'] = df['FECHA DE CREACION'].dt.year.astype(str)
+                    df['MES_NUM'] = df['FECHA DE CREACION'].dt.month
+                    df['MES_NOMBRE'] = df['MES_NUM'].map(meses_es).fillna("Desconocido")
                     
-                    # --- LÓGICA: NORMALIZAR NOMBRES DE COLABORADORES ---
-                    for col_n in ['COLABORADOR', 'MENSAJERO', 'RESPONSABLE', 'USUARIO']:
-                        if col_n in df.columns:
-                            df[col_n] = df[col_n].fillna('')
-                            df[col_n] = df[col_n].astype(str).str.strip().str.title().apply(lambda x: ' '.join(x.split()))
-                            df[col_n] = df[col_n].replace('Nan', '') 
-
-                    # --- NUEVA LÓGICA CORREGIDA: LIMPIEZA DE CENTRO DE COSTOS ---
-                    # Sin secuencias de escape de unicode, usando los caracteres literales directamente
-                    if 'CENTRO DE COSTOS' in df.columns:
-                        df['CENTRO DE COSTOS'] = df['CENTRO DE COSTOS'].astype(str).str.replace(r'^([a-zA-Z]*\d+[a-zA-Z0-9]*)\s*[-–—]*\s*', '', regex=True).str.strip()
-
-                    if 'FECHA DE CREACION' in df.columns:
-                        df['FECHA DE CREACION'] = pd.to_datetime(df['FECHA DE CREACION'], dayfirst=True, errors='coerce')
-                        df['FECHA DE CREACION'] = df['FECHA DE CREACION'].fillna(pd.Timestamp.now())
-                        meses_es = {1:'Enero', 2:'Febrero', 3:'Marzo', 4:'Abril', 5:'Mayo', 6:'Junio', 7:'Julio', 8:'Agosto', 9:'Septiembre', 10:'Octubre', 11:'Noviembre', 12:'Diciembre'}
-                        df['AÑO'] = df['FECHA DE CREACION'].dt.year.astype(str)
-                        df['MES_NUM'] = df['FECHA DE CREACION'].dt.month
-                        df['MES_NOMBRE'] = df['MES_NUM'].map(meses_es).fillna("Desconocido")
-                        
-                        df['SEMANA_NUM'] = df['FECHA DE CREACION'].dt.isocalendar().week
-                        df['SEMANA'] = "Semana " + df['SEMANA_NUM'].astype(str).str.zfill(2)
-                        
-                        dias_esp = {'Monday':'Lunes', 'Tuesday':'Martes', 'Wednesday':'Miércoles', 'Thursday':'Jueves', 'Friday':'Viernes', 'Saturday':'Sábado', 'Sunday':'Domingo'}
-                        orden_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
-                        df['DIA_SEMANA'] = pd.Categorical(df['FECHA DE CREACION'].dt.day_name().map(dias_esp), categories=orden_dias, ordered=True)
+                    df['SEMANA_NUM'] = df['FECHA DE CREACION'].dt.isocalendar().week
+                    df['SEMANA'] = "Semana " + df['SEMANA_NUM'].astype(str).str.zfill(2)
                     
-                    if 'TIEMPO EJECUCIÓN REAL' in df.columns:
-                        df['TIEMPO_MINUTOS'] = df['TIEMPO EJECUCIÓN REAL'].apply(convertir_a_minutos)
-                        df['TIEMPO_HORAS'] = df['TIEMPO_MINUTOS'] / 60 
-                    else:
-                        df['TIEMPO_HORAS'] = 0
+                    dias_esp = {'Monday':'Lunes', 'Tuesday':'Martes', 'Wednesday':'Miércoles', 'Thursday':'Jueves', 'Friday':'Viernes', 'Saturday':'Sábado', 'Sunday':'Domingo'}
+                    orden_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+                    df['DIA_SEMANA'] = pd.Categorical(df['FECHA DE CREACION'].dt.day_name().map(dias_esp), categories=orden_dias, ordered=True)
+                
+                if 'TIEMPO EJECUCIÓN REAL' in df.columns:
+                    df['TIEMPO_MINUTOS'] = df['TIEMPO EJECUCIÓN REAL'].apply(convertir_a_minutos)
+                    df['TIEMPO_HORAS'] = df['TIEMPO_MINUTOS'] / 60 
+                else:
+                    df['TIEMPO_HORAS'] = 0
 
-                    if 'TIPO DE SERVICIO' in df.columns:
-                        df['CIUDAD_REAL'] = df['TIPO DE SERVICIO'].apply(extraer_ciudad)
-                        df['CANTIDAD_DESTINOS'] = df['TIPO DE SERVICIO'].astype(str).str.extract(r'(\d+)')[0].fillna(1).astype(int)
-                    elif 'UNIDAD DE NEGOCIO' in df.columns:
-                        df['CIUDAD_REAL'] = df['UNIDAD DE NEGOCIO'].apply(extraer_ciudad)
-                        df['CANTIDAD_DESTINOS'] = 1
-                    else:
-                        df['CIUDAD_REAL'] = 'Sede Central'
-                        df['CANTIDAD_DESTINOS'] = 1
-                        
-                    return df
-        except Exception as e:
-            if intento == max_reintentos - 1:
-                st.error(f"Error cargando la base de datos remota tras varios intentos: {e}")
-        
-        time.sleep(2) 
-        
+                if 'TIPO DE SERVICIO' in df.columns:
+                    df['CIUDAD_REAL'] = df['TIPO DE SERVICIO'].apply(extraer_ciudad)
+                    df['CANTIDAD_DESTINOS'] = df['TIPO DE SERVICIO'].astype(str).str.extract(r'(\d+)')[0].fillna(1).astype(int)
+                elif 'UNIDAD DE NEGOCIO' in df.columns:
+                    df['CIUDAD_REAL'] = df['UNIDAD DE NEGOCIO'].apply(extraer_ciudad)
+                    df['CANTIDAD_DESTINOS'] = 1
+                else:
+                    df['CIUDAD_REAL'] = 'Sede Central'
+                    df['CANTIDAD_DESTINOS'] = 1
+                    
+                return df
+    except Exception as e:
+        st.error(f"Error cargando la base de datos remota: {e}")
     return pd.DataFrame()
 
 df = obtener_y_procesar_datos()
@@ -149,10 +139,11 @@ df = obtener_y_procesar_datos()
 # 5. CONFIGURACIÓN (Panel Lateral)
 # ==========================================
 with st.sidebar:
+    # --- NUEVO BOTÓN DE ACTUALIZACIÓN MANUAL ---
     st.markdown("### ■ Refrescar Tablero")
     if st.button("🔄 Descargar datos recientes", use_container_width=True):
-        st.cache_data.clear() 
-        st.rerun() 
+        st.cache_data.clear() # Borra el caché
+        st.rerun() # Recarga la página instantáneamente
         
     st.markdown("---")
     
@@ -371,6 +362,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             fig_combo.update_traces(textposition='outside')
             st.plotly_chart(fig_combo, use_container_width=True)
 
+        # --- SECCIÓN: DESGLOSE DE AFECTACIÓN DE EFECTIVIDAD ---
         if 'ESTADO' in df_filtrado.columns:
             st.markdown("<br>", unsafe_allow_html=True)
             if not fallidos_df.empty:
@@ -379,6 +371,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
                     
                     col_mensajero = next((col for col in ['COLABORADOR', 'MENSAJERO', 'RESPONSABLE', 'USUARIO'] if col in df_filtrado.columns), None)
                     
+                    # 1. Gráficas por Ciudad y Trámite
                     col_f_graf1, col_f_graf2 = st.columns(2)
                     
                     with col_f_graf1:
@@ -396,6 +389,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
                             fig_ft.update_traces(marker_color='#E30613', textposition='outside')
                             st.plotly_chart(fig_ft, use_container_width=True)
 
+                    # 2. Tabla consolidada por Mensajero
                     if col_mensajero:
                         st.markdown(f"<br><b>Consolidado de Fallos por {col_mensajero.title()}</b>", unsafe_allow_html=True)
                         res_mensajero_fallos = fallidos_df.groupby(col_mensajero)['CANTIDAD_DESTINOS'].sum().reset_index(name='Total Vueltas Fallidas').sort_values('Total Vueltas Fallidas', ascending=False)
@@ -404,6 +398,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
                     st.markdown("<hr style='opacity: 0.2;'>", unsafe_allow_html=True)
                     st.markdown("<b>Detalle Registro a Registro (Solicitudes Fallidas)</b>", unsafe_allow_html=True)
                     
+                    # --- NUEVO FILTRO POR MENSAJERO ---
                     df_detalle_fallidos = fallidos_df.copy()
                     if col_mensajero:
                         mensajeros_disponibles = sorted(df_detalle_fallidos[col_mensajero].dropna().unique())
@@ -428,6 +423,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     elif st.session_state['pagina_actual'] == 'Tiempo':
         st.title("■ Análisis Gerencial de Tiempos Operativos")
         
+        # Filtramos registros con tiempo "cero" para que el promedio refleje la realidad
         df_tiempos_validos = df_filtrado[df_filtrado['TIEMPO_HORAS'] > 0]
         
         if 'TIEMPO_HORAS' in df_tiempos_validos.columns and 'TRAMITE' in df_tiempos_validos.columns:
@@ -435,12 +431,13 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             with col_t1:
                 st.markdown("<b>Tiempo Promedio por Trámite (Horas/Vuelta)</b>", unsafe_allow_html=True)
                 
+                # FÓRMULA SOLICITADA: Total Horas / Total Vueltas (Destinos)
                 res_tiempo = df_tiempos_validos.groupby('TRAMITE').agg(
                     Suma_Tiempos=('TIEMPO_HORAS', 'sum'),
                     Suma_Vueltas=('CANTIDAD_DESTINOS', 'sum')
                 ).reset_index()
                 
-                res_tiempo['Suma_Vueltas'] = res_tiempo['Suma_Vueltas'].replace(0, 1) 
+                res_tiempo['Suma_Vueltas'] = res_tiempo['Suma_Vueltas'].replace(0, 1) # Para evitar división por cero
                 res_tiempo['TIEMPO_PROMEDIO'] = res_tiempo['Suma_Tiempos'] / res_tiempo['Suma_Vueltas']
                 
                 res_tiempo = res_tiempo.sort_values(by='TIEMPO_PROMEDIO', ascending=True).tail(10)
@@ -508,11 +505,6 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             
         with col_p2:
             st.markdown("<b>Participación por Trámite (Top 15)</b>", unsafe_allow_html=True)
-            
-            if centro_sel:
-                texto_cencos = ", ".join(centro_sel)
-                st.markdown(f"<p style='color: #457B9D; font-weight: 600; font-size: 15px; margin-top: -15px;'>📍 Seleccionado(s): {texto_cencos}</p>", unsafe_allow_html=True)
-            
             if 'TRAMITE' in df_filtrado.columns:
                 res_part_tr = df_filtrado.groupby('TRAMITE')['CANTIDAD_DESTINOS'].sum().reset_index(name='Total').sort_values('Total', ascending=False).head(15).sort_values('Total', ascending=True)
                 fig_part_bar = px.bar(res_part_tr, x='Total', y='TRAMITE', orientation='h', text='Total')
@@ -612,6 +604,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
             res_comp = res_comp[cols_requeridas]
             res_comp['Total Asignadas'] = res_comp.sum(axis=1)
             
+            # Ordenar primero a quienes tienen más tareas aceptadas sin iniciar (como alerta)
             res_comp = res_comp.sort_values(by=['⚠️ Aceptadas (Sin Iniciar)', '⏳ En Trámite (Inicio/Llegada)'], ascending=False).reset_index()
             res_comp = res_comp[res_comp[col_mensajero].str.strip() != ""]
             

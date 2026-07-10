@@ -82,7 +82,6 @@ def extraer_ciudad(texto):
 @st.cache_data(ttl=3600, show_spinner="Sincronizando con Google Sheets... Por favor espera ⏳")
 def obtener_y_procesar_datos():
     try:
-        # Aumentamos el timeout a 150 segundos (2.5 minutos) para evitar que se corte la conexión
         req = requests.get(URL_APPSCRIPT, timeout=150)
         if req.status_code == 200:
             datos = req.json()
@@ -97,10 +96,10 @@ def obtener_y_procesar_datos():
                         df[col_n] = df[col_n].astype(str).str.strip().str.title().apply(lambda x: ' '.join(x.split()))
                         df[col_n] = df[col_n].replace('Nan', '') 
 
-                # --- NUEVA LÓGICA: LIMPIEZA DE CENTRO DE COSTOS ---
-                # Borra los números, guiones y espacios que estén al inicio del texto
+                # --- NUEVA LÓGICA ULTRA ROBUSTA: LIMPIEZA DE CENTRO DE COSTOS ---
+                # Esta regla elimina códigos que empiezan con números o letras+números, seguidos de guiones o espacios
                 if 'CENTRO DE COSTOS' in df.columns:
-                    df['CENTRO DE COSTOS'] = df['CENTRO DE COSTOS'].astype(str).str.replace(r'^[\d\-\s]+', '', regex=True).str.strip()
+                    df['CENTRO DE COSTOS'] = df['CENTRO DE COSTOS'].astype(str).str.replace(r'^([a-zA-Z]*\d+[a-zA-Z0-9]*)\s*[-\u2013\u2014]*\s*', '', regex=True).str.strip()
 
                 if 'FECHA DE CREACION' in df.columns:
                     df['FECHA DE CREACION'] = pd.to_datetime(df['FECHA DE CREACION'], dayfirst=True, errors='coerce')
@@ -144,11 +143,10 @@ df = obtener_y_procesar_datos()
 # 5. CONFIGURACIÓN (Panel Lateral)
 # ==========================================
 with st.sidebar:
-    # --- NUEVO BOTÓN DE ACTUALIZACIÓN MANUAL ---
     st.markdown("### ■ Refrescar Tablero")
     if st.button("🔄 Descargar datos recientes", use_container_width=True):
-        st.cache_data.clear() # Borra el caché
-        st.rerun() # Recarga la página instantáneamente
+        st.cache_data.clear() 
+        st.rerun() 
         
     st.markdown("---")
     

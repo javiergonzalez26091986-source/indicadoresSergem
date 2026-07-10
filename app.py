@@ -98,9 +98,10 @@ def obtener_y_procesar_datos():
                             df[col_n] = df[col_n].astype(str).str.strip().str.title().apply(lambda x: ' '.join(x.split()))
                             df[col_n] = df[col_n].replace('Nan', '') 
 
-                    # --- NUEVA LÓGICA ULTRA ROBUSTA: LIMPIEZA DE CENTRO DE COSTOS ---
+                    # --- NUEVA LÓGICA CORREGIDA: LIMPIEZA DE CENTRO DE COSTOS ---
+                    # Sin secuencias de escape de unicode, usando los caracteres literales directamente
                     if 'CENTRO DE COSTOS' in df.columns:
-                        df['CENTRO DE COSTOS'] = df['CENTRO DE COSTOS'].astype(str).str.replace(r'^([a-zA-Z]*\d+[a-zA-Z0-9]*)\s*[-\u2013\u2014]*\s*', '', regex=True).str.strip()
+                        df['CENTRO DE COSTOS'] = df['CENTRO DE COSTOS'].astype(str).str.replace(r'^([a-zA-Z]*\d+[a-zA-Z0-9]*)\s*[-–—]*\s*', '', regex=True).str.strip()
 
                     if 'FECHA DE CREACION' in df.columns:
                         df['FECHA DE CREACION'] = pd.to_datetime(df['FECHA DE CREACION'], dayfirst=True, errors='coerce')

@@ -87,7 +87,6 @@ def extraer_ciudad(texto):
 def obtener_y_procesar_datos():
     max_reintentos = 3
     
-    # NUEVO: Pedimos a Google que comprima los datos para que viajen más rápido y no se rompa la conexión
     headers = {
         'Accept-Encoding': 'gzip, deflate',
         'Connection': 'keep-alive'
@@ -95,7 +94,6 @@ def obtener_y_procesar_datos():
     
     for intento in range(max_reintentos):
         try:
-            # Aumentamos el timeout a 120 para darle tiempo a Google de procesar, pero saldrá enseguida si responde antes.
             req = requests.get(URL_APPSCRIPT, headers=headers, timeout=120)
             
             if req.status_code == 200:
@@ -104,14 +102,12 @@ def obtener_y_procesar_datos():
                     df = pd.DataFrame(datos)
                     df.columns = df.columns.str.strip().str.upper()
                     
-                    # --- LÓGICA: NORMALIZAR NOMBRES DE COLABORADORES ---
                     for col_n in ['COLABORADOR', 'MENSAJERO', 'RESPONSABLE', 'USUARIO']:
                         if col_n in df.columns:
                             df[col_n] = df[col_n].fillna('')
                             df[col_n] = df[col_n].astype(str).str.strip().str.title().apply(lambda x: ' '.join(x.split()))
                             df[col_n] = df[col_n].replace('Nan', '') 
 
-                    # --- LÓGICA CORREGIDA: LIMPIEZA DE CENTRO DE COSTOS ---
                     if 'CENTRO DE COSTOS' in df.columns:
                         df['CENTRO DE COSTOS'] = df['CENTRO DE COSTOS'].astype(str).str.replace(r'^([a-zA-Z]*\d+[a-zA-Z0-9]*)\s*[-–—]*\s*', '', regex=True).str.strip()
 
@@ -146,16 +142,22 @@ def obtener_y_procesar_datos():
                         df['CIUDAD_REAL'] = 'Sede Central'
                         df['CANTIDAD_DESTINOS'] = 1
                         
-                    return df # <-- SALIDA INMEDIATA Y EFECTIVA SI TODO ESTÁ BIEN
+                    return df 
         except Exception as e:
             if intento == max_reintentos - 1:
                 st.error(f"Error cargando la base de datos remota tras varios intentos: {e}")
             else:
-                time.sleep(2) # <-- SOLO ESPERA SI REALMENTE HUBO UN ERROR DE RED Y VA A REINTENTAR
+                time.sleep(2) 
         
     return pd.DataFrame()
 
 df = obtener_y_procesar_datos()
+
+# ==========================================
+# 4.5 CONTENEDOR CENTRAL PARA AVISOS DE CARGA
+# ==========================================
+# Este contenedor está en el área principal de la pantalla, fuera de la barra lateral
+zona_mensajes = st.empty()
 
 # ==========================================
 # 5. CONFIGURACIÓN (Panel Lateral)
@@ -185,60 +187,79 @@ with st.sidebar:
     archivo_subido = st.file_uploader("Subir archivo de origen", type=['xlsx', 'xls', 'csv'], key=st.session_state['uploader_key'])
     
     if archivo_subido is not None and st.button("Procesar y Subir"):
-        with st.spinner("⏳ Procesando el archivo y enviando datos a Google Sheets. Por favor, espera..."):
-            if archivo_subido.name.endswith('.csv'): df_nuevo = pd.read_csv(archivo_subido, sep=';', encoding='utf-8')
-            else: df_nuevo = pd.read_excel(archivo_subido)
+        
+        # Redirigimos todos los mensajes al centro de la pantalla
+        with zona_mensajes.container():
+            st.markdown("<br>", unsafe_allow_html=True)
+            continuar_subida = True
+            mensaje_alerta = ""
+            mensaje_info = ""
             
-            df_nuevo.columns = df_nuevo.columns.str.strip().str.upper()
-            
-            if '#WIP' in df_nuevo.columns and not df.empty and '#WIP' in df.columns:
-                wips_existentes = set(df['#WIP'].astype(str).str.strip())
-                df_nuevo['#WIP_TEMP'] = df_nuevo['#WIP'].astype(str).str.strip()
+            with st.spinner("⏳ Validando archivo y verificando duplicados..."):
+                if archivo_subido.name.endswith('.csv'): df_nuevo = pd.read_csv(archivo_subido, sep=';', encoding='utf-8')
+                else: df_nuevo = pd.read_excel(archivo_subido)
                 
-                registros_originales = len(df_nuevo)
-                df_nuevo = df_nuevo[~df_nuevo['#WIP_TEMP'].isin(wips_existentes)]
-                df_nuevo = df_nuevo.drop(columns=['#WIP_TEMP'])
+                df_nuevo.columns = df_nuevo.columns.str.strip().str.upper()
                 
-                registros_nuevos = len(df_nuevo)
-                registros_omitidos = registros_originales - registros_nuevos
-                
-                if registros_nuevos == 0:
-                    st.warning(f"⚠️ Los {registros_originales} registros del archivo ya existen en la base de datos. No hay duplicados que subir.")
-                    st.stop()
-                elif registros_omitidos > 0:
-                    st.info(f"ℹ️ Se evitaron {registros_omitidos} duplicados. Subiendo únicamente {registros_nuevos} registros nuevos.")
-            elif '#WIP' not in df_nuevo.columns:
-                st.warning("⚠️ El archivo subido no contiene la columna '#WIP'. Se subirán los datos sin validar duplicados.")
+                if '#WIP' in df_nuevo.columns and not df.empty and '#WIP' in df.columns:
+                    wips_existentes = set(df['#WIP'].astype(str).str.strip())
+                    df_nuevo['#WIP_TEMP'] = df_nuevo['#WIP'].astype(str).str.strip()
+                    
+                    registros_originales = len(df_nuevo)
+                    df_nuevo = df_nuevo[~df_nuevo['#WIP_TEMP'].isin(wips_existentes)]
+                    df_nuevo = df_nuevo.drop(columns=['#WIP_TEMP'])
+                    
+                    registros_nuevos = len(df_nuevo)
+                    registros_omitidos = registros_originales - registros_nuevos
+                    
+                    if registros_nuevos == 0:
+                        continuar_subida = False
+                        mensaje_alerta = f"⚠️ Los {registros_originales} registros del archivo ya existen en la base de datos. No hay duplicados que subir."
+                    elif registros_omitidos > 0:
+                        mensaje_info = f"ℹ️ Se evitaron {registros_omitidos} duplicados. Subiendo únicamente {registros_nuevos} registros nuevos."
+                elif '#WIP' not in df_nuevo.columns:
+                    mensaje_info = "⚠️ El archivo subido no contiene la columna '#WIP'. Se subirán los datos sin validar duplicados."
 
-            df_nuevo = df_nuevo.fillna("") 
-            df_nuevo = df_nuevo.astype(str)
-            
-            total_filas = len(df_nuevo)
-            tamano_lote = 500 
-            
-            st.markdown("Sincronizando registros nuevos...")
-            barra_progreso = st.progress(0)
-            
-            exito = True
-            for i in range(0, total_filas, tamano_lote):
-                lote = df_nuevo.iloc[i:i+tamano_lote]
-                json_str = lote.to_json(orient='records')
-                payload_limpio = json.loads(json_str)
-                try:
-                    respuesta = requests.post(URL_APPSCRIPT, json=payload_limpio)
-                    if respuesta.status_code not in [200, 302]:
-                        exito = False; break
-                except Exception as e:
-                    exito = False; break
-                barra_progreso.progress(min(1.0, (i + tamano_lote) / total_filas))
-                time.sleep(0.5)
-            
-            if exito:
-                st.cache_data.clear()
+            # Si todo está duplicado, se detiene limpia y avisa
+            if not continuar_subida:
+                st.warning(mensaje_alerta)
+                time.sleep(4) # Espera 4 segundos para que se lea el letrero
                 st.session_state['uploader_key'] = str(time.time())
-                st.success("✅ ¡Base de datos sincronizada exitosamente! Actualizando el tablero...")
-                time.sleep(3) 
                 st.rerun()
+            else:
+                if mensaje_info:
+                    st.info(mensaje_info)
+                    
+                df_nuevo = df_nuevo.fillna("") 
+                df_nuevo = df_nuevo.astype(str)
+                total_filas = len(df_nuevo)
+                tamano_lote = 500 
+                exito = True
+                
+                with st.spinner("⏳ Enviando registros nuevos a Google Sheets. Por favor, espera..."):
+                    barra_progreso = st.progress(0)
+                    for i in range(0, total_filas, tamano_lote):
+                        lote = df_nuevo.iloc[i:i+tamano_lote]
+                        json_str = lote.to_json(orient='records')
+                        payload_limpio = json.loads(json_str)
+                        try:
+                            respuesta = requests.post(URL_APPSCRIPT, json=payload_limpio)
+                            if respuesta.status_code not in [200, 302]:
+                                exito = False; break
+                        except Exception as e:
+                            exito = False; break
+                        barra_progreso.progress(min(1.0, (i + tamano_lote) / total_filas))
+                        time.sleep(0.5)
+                
+                if exito:
+                    st.success("✅ ¡Base de datos sincronizada exitosamente! Actualizando el tablero...")
+                    st.cache_data.clear()
+                    st.session_state['uploader_key'] = str(time.time())
+                    time.sleep(3) 
+                    st.rerun()
+                else:
+                    st.error("❌ Ocurrió un error de red enviando los datos. Inténtalo nuevamente.")
+                    time.sleep(3)
 
 # ==========================================
 # 6. RENDERIZADO DE LA INTERFAZ

@@ -60,28 +60,8 @@ if 'uploader_key' not in st.session_state:
 def cambiar_pagina(nombre_pagina):
     st.session_state['pagina_actual'] = nombre_pagina
 
-def convertir_a_minutos(texto):
-    if pd.isna(texto) or texto == '': return 0
-    t = str(texto).lower()
-    mins = 0
-    dias = re.search(r'(\d+)\s*d', t)
-    horas = re.search(r'(\d+)\s*h', t)
-    m = re.search(r'(\d+)\s*min', t)
-    if dias: mins += int(dias.group(1)) * 1440 
-    if horas: mins += int(horas.group(1)) * 60 
-    if m: mins += int(m.group(1))
-    return mins
-
-def extraer_ciudad(texto):
-    if pd.isna(texto): return 'Sin Ciudad'
-    t = str(texto).upper()
-    ciudades = ['BOGOTA', 'CALI', 'BARRANQUILLA', 'CARTAGENA', 'SANTA MARTA', 'MEDELLIN', 'IBAGUE']
-    for c in ciudades:
-        if c in t: return c.capitalize()
-    return 'Otra'
-
 # ==========================================
-# 4. PROCESAMIENTO EN CACHÉ (ESTABILIDAD DE RED Y COMPRESIÓN)
+# 4. PROCESAMIENTO EN CACHÉ (VELOCIDAD EXTREMA MEDIANTE VECTORIZACIÓN)
 # ==========================================
 @st.cache_data(ttl=3600, show_spinner="Sincronizando con Google Sheets... Por favor espera ⏳")
 def obtener_y_procesar_datos():
@@ -92,9 +72,12 @@ def obtener_y_procesar_datos():
         'Connection': 'keep-alive'
     }
     
+    # Usamos una Sesión HTTP para mantener viva la conexión y acelerar la descarga
+    session = requests.Session()
+    
     for intento in range(max_reintentos):
         try:
-            req = requests.get(URL_APPSCRIPT, headers=headers, timeout=120)
+            req = session.get(URL_APPSCRIPT, headers=headers, timeout=120)
             
             if req.status_code == 200:
                 datos = req.json()
@@ -111,9 +94,14 @@ def obtener_y_procesar_datos():
                     if 'CENTRO DE COSTOS' in df.columns:
                         df['CENTRO DE COSTOS'] = df['CENTRO DE COSTOS'].astype(str).str.replace(r'^([a-zA-Z]*\d+[a-zA-Z0-9]*)\s*[-–—]*\s*', '', regex=True).str.strip()
 
+                    # ÓPTIMIZACIÓN DE FECHAS: Calculamos solo fechas únicas para evitar que analice celda por celda
                     if 'FECHA DE CREACION' in df.columns:
-                        df['FECHA DE CREACION'] = pd.to_datetime(df['FECHA DE CREACION'], dayfirst=True, errors='coerce')
-                        df['FECHA DE CREACION'] = df['FECHA DE CREACION'].fillna(pd.Timestamp.now())
+                        fechas_unicas = df['FECHA DE CREACION'].dropna().unique()
+                        fechas_parseadas = pd.to_datetime(fechas_unicas, dayfirst=True, errors='coerce')
+                        mapa_fechas = dict(zip(fechas_unicas, fechas_parseadas))
+                        
+                        df['FECHA DE CREACION'] = df['FECHA DE CREACION'].map(mapa_fechas).fillna(pd.Timestamp.now())
+                        
                         meses_es = {1:'Enero', 2:'Febrero', 3:'Marzo', 4:'Abril', 5:'Mayo', 6:'Junio', 7:'Julio', 8:'Agosto', 9:'Septiembre', 10:'Octubre', 11:'Noviembre', 12:'Diciembre'}
                         df['AÑO'] = df['FECHA DE CREACION'].dt.year.astype(str)
                         df['MES_NUM'] = df['FECHA DE CREACION'].dt.month
@@ -126,17 +114,30 @@ def obtener_y_procesar_datos():
                         orden_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
                         df['DIA_SEMANA'] = pd.Categorical(df['FECHA DE CREACION'].dt.day_name().map(dias_esp), categories=orden_dias, ordered=True)
                     
+                    # ÓPTIMIZACIÓN DE TIEMPO: Vectorizamos el regex (sin bucles lentos de apply)
                     if 'TIEMPO EJECUCIÓN REAL' in df.columns:
-                        df['TIEMPO_MINUTOS'] = df['TIEMPO EJECUCIÓN REAL'].apply(convertir_a_minutos)
+                        t = df['TIEMPO EJECUCIÓN REAL'].astype(str).str.lower()
+                        dias = t.str.extract(r'(\d+)\s*d')[0].fillna(0).astype(int)
+                        horas = t.str.extract(r'(\d+)\s*h')[0].fillna(0).astype(int)
+                        mins = t.str.extract(r'(\d+)\s*min')[0].fillna(0).astype(int)
+                        
+                        df['TIEMPO_MINUTOS'] = (dias * 1440) + (horas * 60) + mins
                         df['TIEMPO_HORAS'] = df['TIEMPO_MINUTOS'] / 60 
                     else:
                         df['TIEMPO_HORAS'] = 0
 
+                    # ÓPTIMIZACIÓN DE CIUDAD: Vectorizamos la extracción
+                    ciudades_pat = r'(?i)(BOGOTA|CALI|BARRANQUILLA|CARTAGENA|SANTA MARTA|MEDELLIN|IBAGUE)'
+                    
+                    def asignar_ciudad_rapido(serie):
+                        ciudad_extraida = serie.astype(str).str.extract(ciudades_pat)[0].str.capitalize()
+                        return np.where(serie.isna(), 'Sin Ciudad', ciudad_extraida.fillna('Otra'))
+
                     if 'TIPO DE SERVICIO' in df.columns:
-                        df['CIUDAD_REAL'] = df['TIPO DE SERVICIO'].apply(extraer_ciudad)
+                        df['CIUDAD_REAL'] = asignar_ciudad_rapido(df['TIPO DE SERVICIO'])
                         df['CANTIDAD_DESTINOS'] = df['TIPO DE SERVICIO'].astype(str).str.extract(r'(\d+)')[0].fillna(1).astype(int)
                     elif 'UNIDAD DE NEGOCIO' in df.columns:
-                        df['CIUDAD_REAL'] = df['UNIDAD DE NEGOCIO'].apply(extraer_ciudad)
+                        df['CIUDAD_REAL'] = asignar_ciudad_rapido(df['UNIDAD DE NEGOCIO'])
                         df['CANTIDAD_DESTINOS'] = 1
                     else:
                         df['CIUDAD_REAL'] = 'Sede Central'
@@ -156,7 +157,6 @@ df = obtener_y_procesar_datos()
 # ==========================================
 # 4.5 CONTENEDOR CENTRAL PARA AVISOS DE CARGA
 # ==========================================
-# Este contenedor está en el área principal de la pantalla, fuera de la barra lateral
 zona_mensajes = st.empty()
 
 # ==========================================
@@ -223,7 +223,7 @@ with st.sidebar:
             # Si todo está duplicado, se detiene limpia y avisa
             if not continuar_subida:
                 st.warning(mensaje_alerta)
-                time.sleep(4) # Espera 4 segundos para que se lea el letrero
+                time.sleep(4)
                 st.session_state['uploader_key'] = str(time.time())
                 st.rerun()
             else:

@@ -53,6 +53,10 @@ URL_APPSCRIPT = "https://script.google.com/macros/s/AKfycbwnn_iCYyaASqNXRN5zTA7E
 if 'pagina_actual' not in st.session_state:
     st.session_state['pagina_actual'] = 'Inicio'
 
+# Variable de estado para limpiar el uploader automáticamente
+if 'uploader_key' not in st.session_state:
+    st.session_state['uploader_key'] = str(time.time())
+
 def cambiar_pagina(nombre_pagina):
     st.session_state['pagina_actual'] = nombre_pagina
 
@@ -77,14 +81,15 @@ def extraer_ciudad(texto):
     return 'Otra'
 
 # ==========================================
-# 4. PROCESAMIENTO EN CACHÉ (OPTIMIZADO CON REINTENTOS)
+# 4. PROCESAMIENTO EN CACHÉ (VELOCIDAD OPTIMIZADA)
 # ==========================================
 @st.cache_data(ttl=3600, show_spinner="Sincronizando con Google Sheets... Por favor espera ⏳")
 def obtener_y_procesar_datos():
     max_reintentos = 3
     for intento in range(max_reintentos):
         try:
-            req = requests.get(URL_APPSCRIPT, timeout=150)
+            # Reducimos timeout a un tiempo prudente para no congelar la UI si falla
+            req = requests.get(URL_APPSCRIPT, timeout=45)
             if req.status_code == 200:
                 datos = req.json()
                 if datos and len(datos) > 0:
@@ -99,7 +104,6 @@ def obtener_y_procesar_datos():
                             df[col_n] = df[col_n].replace('Nan', '') 
 
                     # --- NUEVA LÓGICA CORREGIDA: LIMPIEZA DE CENTRO DE COSTOS ---
-                    # Sin secuencias de escape de unicode, usando los caracteres literales directamente
                     if 'CENTRO DE COSTOS' in df.columns:
                         df['CENTRO DE COSTOS'] = df['CENTRO DE COSTOS'].astype(str).str.replace(r'^([a-zA-Z]*\d+[a-zA-Z0-9]*)\s*[-–—]*\s*', '', regex=True).str.strip()
 
@@ -134,12 +138,12 @@ def obtener_y_procesar_datos():
                         df['CIUDAD_REAL'] = 'Sede Central'
                         df['CANTIDAD_DESTINOS'] = 1
                         
-                    return df
+                    return df # <-- SALIDA INMEDIATA SI TODO ESTÁ BIEN
         except Exception as e:
             if intento == max_reintentos - 1:
                 st.error(f"Error cargando la base de datos remota tras varios intentos: {e}")
-        
-        time.sleep(2) 
+            else:
+                time.sleep(1.5) # <-- SOLO ESPERA SI REALMENTE HUBO UN ERROR DE RED
         
     return pd.DataFrame()
 
@@ -169,60 +173,64 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("### ■ Actualizar Base de Datos")
-    archivo_subido = st.file_uploader("Subir archivo de origen", type=['xlsx', 'xls', 'csv'])
+    
+    archivo_subido = st.file_uploader("Subir archivo de origen", type=['xlsx', 'xls', 'csv'], key=st.session_state['uploader_key'])
     
     if archivo_subido is not None and st.button("Procesar y Subir"):
-        if archivo_subido.name.endswith('.csv'): df_nuevo = pd.read_csv(archivo_subido, sep=';', encoding='utf-8')
-        else: df_nuevo = pd.read_excel(archivo_subido)
-        
-        df_nuevo.columns = df_nuevo.columns.str.strip().str.upper()
-        
-        if '#WIP' in df_nuevo.columns and not df.empty and '#WIP' in df.columns:
-            wips_existentes = set(df['#WIP'].astype(str).str.strip())
-            df_nuevo['#WIP_TEMP'] = df_nuevo['#WIP'].astype(str).str.strip()
+        with st.spinner("⏳ Procesando el archivo y enviando datos a Google Sheets. Por favor, espera..."):
+            if archivo_subido.name.endswith('.csv'): df_nuevo = pd.read_csv(archivo_subido, sep=';', encoding='utf-8')
+            else: df_nuevo = pd.read_excel(archivo_subido)
             
-            registros_originales = len(df_nuevo)
-            df_nuevo = df_nuevo[~df_nuevo['#WIP_TEMP'].isin(wips_existentes)]
-            df_nuevo = df_nuevo.drop(columns=['#WIP_TEMP'])
+            df_nuevo.columns = df_nuevo.columns.str.strip().str.upper()
             
-            registros_nuevos = len(df_nuevo)
-            registros_omitidos = registros_originales - registros_nuevos
-            
-            if registros_nuevos == 0:
-                st.warning(f"⚠️ Los {registros_originales} registros del archivo ya existen en la base de datos. No hay duplicados que subir.")
-                st.stop()
-            elif registros_omitidos > 0:
-                st.info(f"ℹ️ Se evitaron {registros_omitidos} duplicados. Subiendo únicamente {registros_nuevos} registros nuevos.")
-        elif '#WIP' not in df_nuevo.columns:
-            st.warning("⚠️ El archivo subido no contiene la columna '#WIP'. Se subirán los datos sin validar duplicados.")
+            if '#WIP' in df_nuevo.columns and not df.empty and '#WIP' in df.columns:
+                wips_existentes = set(df['#WIP'].astype(str).str.strip())
+                df_nuevo['#WIP_TEMP'] = df_nuevo['#WIP'].astype(str).str.strip()
+                
+                registros_originales = len(df_nuevo)
+                df_nuevo = df_nuevo[~df_nuevo['#WIP_TEMP'].isin(wips_existentes)]
+                df_nuevo = df_nuevo.drop(columns=['#WIP_TEMP'])
+                
+                registros_nuevos = len(df_nuevo)
+                registros_omitidos = registros_originales - registros_nuevos
+                
+                if registros_nuevos == 0:
+                    st.warning(f"⚠️ Los {registros_originales} registros del archivo ya existen en la base de datos. No hay duplicados que subir.")
+                    st.stop()
+                elif registros_omitidos > 0:
+                    st.info(f"ℹ️ Se evitaron {registros_omitidos} duplicados. Subiendo únicamente {registros_nuevos} registros nuevos.")
+            elif '#WIP' not in df_nuevo.columns:
+                st.warning("⚠️ El archivo subido no contiene la columna '#WIP'. Se subirán los datos sin validar duplicados.")
 
-        df_nuevo = df_nuevo.fillna("") 
-        df_nuevo = df_nuevo.astype(str)
-        
-        total_filas = len(df_nuevo)
-        tamano_lote = 500 
-        
-        st.markdown("Sincronizando registros nuevos...")
-        barra_progreso = st.progress(0)
-        
-        exito = True
-        for i in range(0, total_filas, tamano_lote):
-            lote = df_nuevo.iloc[i:i+tamano_lote]
-            json_str = lote.to_json(orient='records')
-            payload_limpio = json.loads(json_str)
-            try:
-                respuesta = requests.post(URL_APPSCRIPT, json=payload_limpio)
-                if respuesta.status_code not in [200, 302]:
+            df_nuevo = df_nuevo.fillna("") 
+            df_nuevo = df_nuevo.astype(str)
+            
+            total_filas = len(df_nuevo)
+            tamano_lote = 500 
+            
+            st.markdown("Sincronizando registros nuevos...")
+            barra_progreso = st.progress(0)
+            
+            exito = True
+            for i in range(0, total_filas, tamano_lote):
+                lote = df_nuevo.iloc[i:i+tamano_lote]
+                json_str = lote.to_json(orient='records')
+                payload_limpio = json.loads(json_str)
+                try:
+                    respuesta = requests.post(URL_APPSCRIPT, json=payload_limpio)
+                    if respuesta.status_code not in [200, 302]:
+                        exito = False; break
+                except Exception as e:
                     exito = False; break
-            except Exception as e:
-                exito = False; break
-            barra_progreso.progress(min(1.0, (i + tamano_lote) / total_filas))
-            time.sleep(0.5)
-        
-        if exito:
-            st.cache_data.clear()
-            st.success("Base de datos sincronizada exitosamente.")
-            st.rerun()
+                barra_progreso.progress(min(1.0, (i + tamano_lote) / total_filas))
+                time.sleep(0.5)
+            
+            if exito:
+                st.cache_data.clear()
+                st.session_state['uploader_key'] = str(time.time())
+                st.success("✅ ¡Base de datos sincronizada exitosamente! Actualizando el tablero...")
+                time.sleep(3) 
+                st.rerun()
 
 # ==========================================
 # 6. RENDERIZADO DE LA INTERFAZ
@@ -311,7 +319,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     # CÁLCULO GLOBAL DE DÍAS HÁBILES
     # ==========================================
     dias_habiles = 1
-    if not df_filtrado.empty and 'FECHA DE CREACION' in df_filtrado.columns:
+    if not df_filtrado.empty && 'FECHA DE CREACION' in df_filtrado.columns:
         try:
             anos_unicos = df_filtrado['FECHA DE CREACION'].dt.year.unique().tolist()
             festivos_co = holidays.CO(years=anos_unicos)
@@ -454,7 +462,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
                 tendencia = df_tiempos_validos.groupby(['MES_NUM', 'MES_NOMBRE', 'CIUDAD_REAL'])['TIEMPO_HORAS'].mean().reset_index()
                 tendencia['Etiqueta'] = tendencia['CIUDAD_REAL'] + ' (' + tendencia['TIEMPO_HORAS'].round(1).astype(str) + 'h)'
                 fig_tend = px.line(tendencia.sort_values('MES_NUM'), x='MES_NOMBRE', y='TIEMPO_HORAS', color='CIUDAD_REAL', markers=True, text='Etiqueta', color_discrete_sequence=paleta_datos)
-                fig_tend.update_traces(textposition='top center')
+                fig_tend = fig_tend.update_traces(textposition='top center')
                 st.plotly_chart(fig_tend, use_container_width=True)
         else:
             st.warning("No hay suficientes datos con tiempos registrados para generar este análisis.")

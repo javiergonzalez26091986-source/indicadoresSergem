@@ -319,7 +319,7 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     # CÁLCULO GLOBAL DE DÍAS HÁBILES
     # ==========================================
     dias_habiles = 1
-    if not df_filtrado.empty && 'FECHA DE CREACION' in df_filtrado.columns:
+    if not df_filtrado.empty and 'FECHA DE CREACION' in df_filtrado.columns:
         try:
             anos_unicos = df_filtrado['FECHA DE CREACION'].dt.year.unique().tolist()
             festivos_co = holidays.CO(years=anos_unicos)

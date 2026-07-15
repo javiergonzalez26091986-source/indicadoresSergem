@@ -214,7 +214,7 @@ with st.sidebar:
                     
                     if registros_nuevos == 0:
                         continuar_subida = False
-                        mensaje_alerta = f"⚠️ Los {registros_originales} registros del archivo ya existen en la base de datos. No hay duplicados que subir."
+                        mensaje_alerta = f"⚠️ Los {registros_originales} registros del archivo ya existen en la base de datos. No hay datos que subir."
                     elif registros_omitidos > 0:
                         mensaje_info = f"ℹ️ Se evitaron {registros_omitidos} duplicados. Subiendo únicamente {registros_nuevos} registros nuevos."
                 elif '#WIP' not in df_nuevo.columns:

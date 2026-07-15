@@ -81,15 +81,23 @@ def extraer_ciudad(texto):
     return 'Otra'
 
 # ==========================================
-# 4. PROCESAMIENTO EN CACHÉ (VELOCIDAD OPTIMIZADA)
+# 4. PROCESAMIENTO EN CACHÉ (ESTABILIDAD DE RED Y COMPRESIÓN)
 # ==========================================
 @st.cache_data(ttl=3600, show_spinner="Sincronizando con Google Sheets... Por favor espera ⏳")
 def obtener_y_procesar_datos():
     max_reintentos = 3
+    
+    # NUEVO: Pedimos a Google que comprima los datos para que viajen más rápido y no se rompa la conexión
+    headers = {
+        'Accept-Encoding': 'gzip, deflate',
+        'Connection': 'keep-alive'
+    }
+    
     for intento in range(max_reintentos):
         try:
-            # Reducimos timeout a un tiempo prudente para no congelar la UI si falla
-            req = requests.get(URL_APPSCRIPT, timeout=45)
+            # Aumentamos el timeout a 120 para darle tiempo a Google de procesar, pero saldrá enseguida si responde antes.
+            req = requests.get(URL_APPSCRIPT, headers=headers, timeout=120)
+            
             if req.status_code == 200:
                 datos = req.json()
                 if datos and len(datos) > 0:
@@ -103,7 +111,7 @@ def obtener_y_procesar_datos():
                             df[col_n] = df[col_n].astype(str).str.strip().str.title().apply(lambda x: ' '.join(x.split()))
                             df[col_n] = df[col_n].replace('Nan', '') 
 
-                    # --- NUEVA LÓGICA CORREGIDA: LIMPIEZA DE CENTRO DE COSTOS ---
+                    # --- LÓGICA CORREGIDA: LIMPIEZA DE CENTRO DE COSTOS ---
                     if 'CENTRO DE COSTOS' in df.columns:
                         df['CENTRO DE COSTOS'] = df['CENTRO DE COSTOS'].astype(str).str.replace(r'^([a-zA-Z]*\d+[a-zA-Z0-9]*)\s*[-–—]*\s*', '', regex=True).str.strip()
 
@@ -138,12 +146,12 @@ def obtener_y_procesar_datos():
                         df['CIUDAD_REAL'] = 'Sede Central'
                         df['CANTIDAD_DESTINOS'] = 1
                         
-                    return df # <-- SALIDA INMEDIATA SI TODO ESTÁ BIEN
+                    return df # <-- SALIDA INMEDIATA Y EFECTIVA SI TODO ESTÁ BIEN
         except Exception as e:
             if intento == max_reintentos - 1:
                 st.error(f"Error cargando la base de datos remota tras varios intentos: {e}")
             else:
-                time.sleep(1.5) # <-- SOLO ESPERA SI REALMENTE HUBO UN ERROR DE RED
+                time.sleep(2) # <-- SOLO ESPERA SI REALMENTE HUBO UN ERROR DE RED Y VA A REINTENTAR
         
     return pd.DataFrame()
 

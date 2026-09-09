@@ -311,7 +311,8 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     col_f0, col_f1, col_sem, col_f2, col_f3, col_f4 = st.columns(6)
     
     with col_f0: 
-        ano_sel = st.multiselect("Año", sorted(df['AÑO'].dropna().unique()), default=sorted(df['AÑO'].dropna().unique()))
+        # BLINDAJE APLICADO
+        ano_sel = st.multiselect("Año", sorted(df['AÑO'].dropna().astype(str).unique()), default=sorted(df['AÑO'].dropna().astype(str).unique()))
     
     df_temp_ano = df[df['AÑO'].isin(ano_sel)] if ano_sel else df
     
@@ -322,17 +323,21 @@ elif not df.empty and st.session_state['pagina_actual'] != 'Inicio':
     df_temp_mes = df_temp_ano[df_temp_ano['MES_NOMBRE'].isin(mes_sel)] if mes_sel else df_temp_ano
     
     with col_sem: 
-        semanas_disp = sorted(df_temp_mes['SEMANA'].dropna().unique()) if 'SEMANA' in df.columns else []
+        # BLINDAJE APLICADO
+        semanas_disp = sorted(df_temp_mes['SEMANA'].dropna().astype(str).unique()) if 'SEMANA' in df.columns else []
         semana_sel = st.multiselect("Semana", semanas_disp, placeholder="Todas")
         
     with col_f2: 
-        ciudad_sel = st.multiselect("Ciudad / Sede", sorted(df['CIUDAD_REAL'].dropna().unique()), placeholder="Todas")
+        # BLINDAJE APLICADO
+        ciudad_sel = st.multiselect("Ciudad / Sede", sorted(df['CIUDAD_REAL'].dropna().astype(str).unique()), placeholder="Todas")
         
     with col_f3: 
+        # BLINDAJE APLICADO
         centro_sel = st.multiselect("Centro de Costos", sorted(df['CENTRO DE COSTOS'].dropna().astype(str).unique()) if 'CENTRO DE COSTOS' in df.columns else [], placeholder="Todos")
         
     with col_f4: 
-        tramite_sel = st.multiselect("Trámite", sorted(df['TRAMITE'].dropna().unique()) if 'TRAMITE' in df.columns else [], placeholder="Todos")
+        # BLINDAJE APLICADO (Este era el que generaba el error)
+        tramite_sel = st.multiselect("Trámite", sorted(df['TRAMITE'].dropna().astype(str).unique()) if 'TRAMITE' in df.columns else [], placeholder="Todos")
 
     df_filtrado = df.copy()
     if ano_sel: df_filtrado = df_filtrado[df_filtrado['AÑO'].isin(ano_sel)]
